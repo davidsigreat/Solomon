@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth/client";
-import { useRouter } from "next/navigation";
 
 const LOGIN_PATH = "/login";
 const SIGN_OUT_TIMEOUT_MS = 8_000;
@@ -20,7 +19,6 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   const [saved, setSaved] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   type ApiKey = { id: string; name: string; keyPrefix: string; revokedAt: string | null; lastUsedAt: string | null; createdAt: string };
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -96,39 +94,32 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function navigateToLogin() {
-    onClose();
-    router.push(LOGIN_PATH);
-    // Soft navigation can stall after cookies drop; force a full load.
-    window.location.assign(LOGIN_PATH);
+  async function sessionIsCleared() {
+    const me = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+    if (me.ok) return false;
+    const sessionRes = await fetch("/api/auth/get-session", { credentials: "include", cache: "no-store" });
+    const sessionJson = await sessionRes.json().catch(() => null);
+    return !sessionJson?.user && !sessionJson?.session;
   }
 
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
 
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      window.clearTimeout(timeoutId);
-      navigateToLogin();
-    };
-
-    // Better Auth / Neon Auth can leave the promise pending; don't stay on "Signing out…".
-    const timeoutId = window.setTimeout(finish, SIGN_OUT_TIMEOUT_MS);
+    const timeoutId = window.setTimeout(() => setSigningOut(false), SIGN_OUT_TIMEOUT_MS);
 
     try {
-      await authClient.signOut({
-        fetchOptions: {
-          onSuccess: finish,
-          onError: finish,
-        },
-      });
-      finish();
+      // Neon docs: auth.signOut() on the server clears session + session_data cookies.
+      // authClient.signOut() alone left those cookies live (QA: /api/auth/me still 200).
+      const res = await fetch("/api/logout", { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("sign out failed");
+      const cleared = await sessionIsCleared();
+      if (!cleared) throw new Error("session still live");
+      window.clearTimeout(timeoutId);
+      onClose();
+      window.location.replace(LOGIN_PATH);
     } catch {
-      finish();
-    } finally {
+      window.clearTimeout(timeoutId);
       setSigningOut(false);
     }
   }
