@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { formatCalendarDay, formatCalendarTime } from "@/lib/calendarDay";
+import { mapCalendarClientError, type CalendarSignal } from "@/lib/calendarErrors";
 import type { CalendarEvent } from "@/types";
 
-type CalendarError = "no_token" | "api_error" | "unconfigured" | null;
+type CalendarError = CalendarSignal | null;
 
 function isActive(e: CalendarEvent) {
   const now = new Date();
@@ -30,18 +31,15 @@ export default function CalendarWidget() {
   useEffect(() => {
     const load = () =>
       fetch("/api/calendar")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.error === "Google Calendar not configured") {
-            setCalError("unconfigured");
-          } else if (d.error === "No calendar access token") {
-            setCalError("no_token");
-          } else if (d.error) {
-            setCalError("api_error");
-          } else {
-            setCalError(null);
-            setEvents(d.events ?? []);
+        .then(async (r) => {
+          const d = await r.json().catch(() => ({ error: "Failed to fetch events" }));
+          const mapped = mapCalendarClientError(r.status, d);
+          if (mapped) {
+            setCalError(mapped);
+            return;
           }
+          setCalError(null);
+          setEvents(d.events ?? []);
         })
         .catch(() => setCalError("api_error"))
         .finally(() => setLoading(false));

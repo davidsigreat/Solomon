@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --experimental-strip-types --test lib/calendarErrors.test.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
