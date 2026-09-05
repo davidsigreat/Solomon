@@ -94,9 +94,11 @@ export default function DashboardPage() {
   // Must be before any early return — Rules of Hooks
   const activeProjectData = useMemo(() => projects.find(p => p.id === activeProject), [projects, activeProject]);
 
-  // Don't block render with a spinner — show the shell immediately.
-  // Session redirect handled by the useEffect above.
-  if (!isPending && !session) return null;
+  // Proxy is the primary gate. This client guard is backup only — never
+  // paint the protected shell while session is pending or absent.
+  if (isPending || !session) {
+    return <div className="min-h-screen bg-[#09090b]" aria-hidden />;
+  }
 
   const greeting = () => {
     const h = new Date().getHours();
