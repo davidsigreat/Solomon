@@ -10,7 +10,9 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "AI is not configured" }, { status: 503 });

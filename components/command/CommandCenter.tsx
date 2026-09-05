@@ -16,16 +16,20 @@ export default function CommandCenter() {
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     const response = await fetch("/api/sessions");
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setAuthError(typeof data.error === "string" ? data.error : "Could not load sessions.");
       setSessions([]);
       setSessionsLoading(false);
       return [];
     }
     const data = await response.json();
     const next = (data.sessions ?? []) as ChatSession[];
+    setAuthError(null);
     setSessions(next);
     setSessionsLoading(false);
     return next;
@@ -60,7 +64,12 @@ export default function CommandCenter() {
 
   async function createSession() {
     const response = await fetch("/api/sessions", { method: "POST" });
-    if (!response.ok) return;
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setAuthError(typeof data.error === "string" ? data.error : "Could not create a session.");
+      return;
+    }
+    setAuthError(null);
     const data = await response.json();
     const session = data.session as ChatSession;
     setSessions((current) => [session, ...current]);
@@ -131,6 +140,7 @@ export default function CommandCenter() {
           ) : (
             <EmptyPane
               loading={sessionsLoading || messagesLoading}
+              error={authError}
               onCreate={createSession}
             />
           )}
@@ -140,13 +150,14 @@ export default function CommandCenter() {
   );
 }
 
-function EmptyPane({ loading, onCreate }: { loading: boolean; onCreate: () => void }) {
+function EmptyPane({ loading, error, onCreate }: { loading: boolean; error: string | null; onCreate: () => void }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
       <p className="text-[10px] font-mono tracking-[0.3em] text-zinc-700 uppercase mb-2">
         SOLOMON online
       </p>
       <p className="text-sm text-zinc-400">Your personal counsel.</p>
+      {error && <p className="mt-3 text-xs text-red-400 max-w-sm">{error}</p>}
       {!loading && (
         <button
           type="button"

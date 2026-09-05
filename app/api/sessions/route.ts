@@ -5,7 +5,12 @@ import { DEFAULT_SESSION_TITLE } from "@/lib/solomon";
 
 export async function GET() {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ sessions: [] }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json(
+      { sessions: [], error: auth.error, reason: auth.reason },
+      { status: auth.status },
+    );
+  }
 
   const sessions = await db.session.findMany({
     where: { userId: auth.userId },
@@ -26,7 +31,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+  }
 
   let title = DEFAULT_SESSION_TITLE;
   try {

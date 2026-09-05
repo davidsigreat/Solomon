@@ -7,7 +7,9 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Ctx) {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+  }
 
   const { id } = await params;
   const session = await db.session.findFirst({
@@ -30,7 +32,9 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+  }
 
   const { id } = await params;
   const owned = await getOwnedSession(id, auth.userId);
@@ -58,7 +62,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, reason: auth.reason }, { status: auth.status });
+  }
 
   const { id } = await params;
   const owned = await getOwnedSession(id, auth.userId);
