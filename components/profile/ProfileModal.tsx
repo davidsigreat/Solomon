@@ -157,7 +157,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
           <div className="pt-1 border-t border-white/[0.06]">
             <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mt-4 mb-1.5">API Keys</label>
             <p className="text-[10px] text-zinc-700 mb-2.5">
-              Use a key as a <code className="text-zinc-500">Bearer</code> token against <code className="text-zinc-500">/api/v1/*</code> to connect external apps to your projects and tasks.
+              Use a key as a <code className="text-zinc-500">Bearer</code> token against <code className="text-zinc-500">/api/v1/*</code> or MCP at <code className="text-zinc-500">/api/mcp</code> to connect agents and external apps to your projects and tasks.
             </p>
 
             {mintedKey && (

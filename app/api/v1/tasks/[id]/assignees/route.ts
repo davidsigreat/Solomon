@@ -1,24 +1,20 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
-import { getProjectRole } from "@/lib/projectAccess";
+import { getApiAuth, apiAuthError, apiError } from "@/lib/apiAuth";
+import { getProjectRole, requireProjectMutate } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 import { enrichAssignees } from "@/lib/enrichAssignees";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function resolveTaskAccess(id: string, auth: { userId: string; isAdmin: boolean }) {
-  const task = await db.task.findUnique({ where: { id }, select: { projectId: true } });
-  if (!task) return { role: null };
-  return { role: await getProjectRole(task.projectId, auth) };
-}
-
 export async function GET(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const task = await db.task.findUnique({ where: { id }, select: { projectId: true } });
+  if (!task) return apiError(404, "Not found");
+  const role = await getProjectRole(task.projectId, auth);
+  if (!role) return apiError(404, "Not found");
 
   const assignees = await db.taskAssignee.findMany({ where: { taskId: id } });
   const [enriched] = await enrichAssignees([{ assignees }]);
@@ -27,19 +23,22 @@ export async function GET(req: Request, { params }: Ctx) {
 
 export async function POST(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const task = await db.task.findUnique({ where: { id }, select: { projectId: true } });
+  if (!task) return apiError(404, "Not found");
+  const access = await requireProjectMutate(task.projectId, auth);
+  if (!access.ok) return apiError(access.status, access.error);
 
   const { userId } = await req.json();
-  if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  if (!userId) return apiError(400, "userId is required");
 
   try {
     await db.taskAssignee.create({ data: { taskId: id, userId } });
-  } catch {} // already assigned — no-op
+  } catch {
+    // already assigned — no-op
+  }
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

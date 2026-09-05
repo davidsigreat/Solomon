@@ -9,6 +9,8 @@ export type AuthResult =
   | { ok: true; userId: string; email: string; role: UserRole; isAdmin: boolean; canEdit: boolean }
   | { ok: false; status: 401 | 403 };
 
+export type AuthedUser = Extract<AuthResult, { ok: true }>;
+
 const getSession = cache(() => auth.getSession());
 
 // Module-level auth cache — eliminates the appUser DB lookup on every API request.

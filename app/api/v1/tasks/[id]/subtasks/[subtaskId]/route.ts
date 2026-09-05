@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
-import { getProjectRole } from "@/lib/projectAccess";
+import { getApiAuth, apiAuthError, apiError } from "@/lib/apiAuth";
+import { requireProjectMutate } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
 type Ctx = { params: Promise<{ id: string; subtaskId: string }> };
 
-async function resolveTaskAccess(id: string, auth: { userId: string; isAdmin: boolean }) {
-  const task = await db.task.findUnique({ where: { id }, select: { projectId: true } });
-  if (!task) return { role: null };
-  return { role: await getProjectRole(task.projectId, auth) };
+async function mutateAccess(taskId: string, auth: Parameters<typeof requireProjectMutate>[1]) {
+  const task = await db.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (!task) return { ok: false as const, status: 404, error: "Not found" };
+  return requireProjectMutate(task.projectId, auth);
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id, subtaskId } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const access = await mutateAccess(id, auth);
+  if (!access.ok) return apiError(access.status, access.error);
 
   const { title, description, completed } = await req.json();
   const subtask = await db.subtask.update({
@@ -34,12 +33,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id, subtaskId } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const access = await mutateAccess(id, auth);
+  if (!access.ok) return apiError(access.status, access.error);
 
   await db.subtask.delete({ where: { id: subtaskId } });
   return NextResponse.json({ ok: true });

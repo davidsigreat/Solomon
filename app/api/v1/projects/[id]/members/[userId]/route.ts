@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, apiAuthError, apiError } from "@/lib/apiAuth";
 import { getProjectRole } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -7,12 +7,13 @@ type Ctx = { params: Promise<{ id: string; userId: string }> };
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
+  if (!auth.canEdit) return apiError(403, "Forbidden");
 
   const { id, userId } = await params;
   const callerRole = await getProjectRole(id, auth);
   if (!callerRole || callerRole !== "OWNER")
-    return NextResponse.json({ error: "Only owner can change roles" }, { status: 403 });
+    return apiError(403, "Only owner can change roles");
 
   const { role } = await req.json();
   if (!["EDITOR", "VIEWER"].includes(role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
@@ -23,12 +24,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
+  if (!auth.canEdit) return apiError(403, "Forbidden");
 
   const { id, userId } = await params;
   const callerRole = await getProjectRole(id, auth);
   if (!callerRole || callerRole !== "OWNER")
-    return NextResponse.json({ error: "Only owner can remove contributors" }, { status: 403 });
+    return apiError(403, "Only owner can remove contributors");
 
   await db.projectMember.deleteMany({ where: { projectId: id, userId } });
   return NextResponse.json({ ok: true });
