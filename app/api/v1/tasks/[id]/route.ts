@@ -1,68 +1,45 @@
 import { NextResponse } from "next/server";
-import { getApiAuth, requireApiEditor } from "@/lib/apiAuth";
-import { getProjectRole, resolveTaskAccess } from "@/lib/projectAccess";
+import { getApiAuth, requireApiEditor, apiAuthError, apiError, toJsonResponse } from "@/lib/apiAuth";
+import { getProjectRole, requireProjectMutate, resolveTaskAccess } from "@/lib/projectAccess";
+import { TASK_INCLUDE, upsertPublicTask } from "@/lib/solomonPublic";
 import { db } from "@/lib/db";
 import { enrichOneTask } from "@/lib/enrichAssignees";
 
-const TASK_INCLUDE = {
-  project: true,
-  subtasks: { orderBy: { createdAt: "asc" as const } },
-  assignees: true,
-};
+type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { task: existing, role } = await resolveTaskAccess(id, auth);
+  if (!existing || !role) return apiError(404, "Not found");
 
   const task = await db.task.findUnique({ where: { id }, include: TASK_INCLUDE });
-  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!task) return apiError(404, "Not found");
   return NextResponse.json({ task: await enrichOneTask(task) });
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: Request, { params }: Ctx) {
   const auth = await requireApiEditor(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
-  const { task: current, role } = await resolveTaskAccess(id, auth);
-  if (!role || !current) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const body = await req.json();
-  // Moving to another project requires edit rights on the target too.
-  if (body.projectId && body.projectId !== current.projectId) {
-    const targetRole = await getProjectRole(body.projectId, auth);
-    if (!targetRole) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    if (targetRole === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  const task = await db.task.update({
-    where: { id },
-    data: {
-      ...(body.title !== undefined       && { title: body.title }),
-      ...(body.description !== undefined && { description: body.description }),
-      ...(body.status !== undefined      && { status: body.status }),
-      ...(body.priority !== undefined    && { priority: body.priority }),
-      ...(body.projectId                 && { projectId: body.projectId }),
-      ...(body.startDate !== undefined   && { startDate: body.startDate ? new Date(body.startDate) : null }),
-      ...(body.dueDate !== undefined     && { dueDate: body.dueDate ? new Date(body.dueDate) : null }),
-    },
-    include: TASK_INCLUDE,
-  });
-  return NextResponse.json({ task: await enrichOneTask(task) });
+  // upsertPublicTask enforces project-role checks on both source and target project.
+  return toJsonResponse(await upsertPublicTask(auth, { ...body, id }));
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: Ctx) {
   const auth = await requireApiEditor(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { task: existing, role } = await resolveTaskAccess(id, auth);
+  if (!existing || !role) return apiError(404, "Not found");
+
+  const access = await requireProjectMutate(existing.projectId, auth);
+  if (!access.ok) return apiError(access.status, access.error);
 
   await db.task.delete({ where: { id } });
   return NextResponse.json({ ok: true });
