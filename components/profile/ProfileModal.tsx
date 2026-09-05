@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 
+const LOGIN_PATH = "/login";
+const SIGN_OUT_TIMEOUT_MS = 8_000;
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -91,6 +94,43 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     setSaved(true);
     refetch?.();
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function navigateToLogin() {
+    onClose();
+    router.push(LOGIN_PATH);
+    // Soft navigation can stall after cookies drop; force a full load.
+    window.location.assign(LOGIN_PATH);
+  }
+
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timeoutId);
+      navigateToLogin();
+    };
+
+    // Better Auth / Neon Auth can leave the promise pending; don't stay on "Signing out…".
+    const timeoutId = window.setTimeout(finish, SIGN_OUT_TIMEOUT_MS);
+
+    try {
+      await authClient.signOut({
+        fetchOptions: {
+          onSuccess: finish,
+          onError: finish,
+        },
+      });
+      finish();
+    } catch {
+      finish();
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (
@@ -208,11 +248,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
             <button
               type="button"
               disabled={signingOut}
-              onClick={async () => {
-                setSigningOut(true);
-                await authClient.signOut();
-                router.push("/login");
-              }}
+              onClick={handleSignOut}
               className="px-4 py-2 text-sm text-red-500 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/[0.06] rounded-xl transition-all disabled:opacity-40"
             >
               {signingOut ? "Signing out..." : "Sign out"}
