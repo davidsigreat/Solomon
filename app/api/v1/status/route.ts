@@ -5,7 +5,12 @@ export const dynamic = "force-dynamic";
 
 /** Cross-project status for every project the API key can access. */
 export async function GET(req: Request) {
-  const auth = await getApiAuth(req);
+  let auth;
+  try {
+    auth = await getApiAuth(req);
+  } catch {
+    return apiAuthError({ ok: false, status: 401 });
+  }
   if (!auth.ok) return apiAuthError(auth);
 
   const payload = await getPortfolioStatus(auth);

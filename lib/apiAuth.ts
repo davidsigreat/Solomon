@@ -22,27 +22,35 @@ export function extractBearerToken(req: Request): string | null {
 
 /**
  * Resolves a minted `sk_live_*` key through `ApiKey` + `resolveAuth`.
- * Revoked or unknown keys are 401. Touches `lastUsedAt` on a valid key.
- * Session cookies are ignored — API-key auth only.
+ * Unknown, malformed, revoked, or unreadable keys are 401 — never throw.
+ * Touches `lastUsedAt` on a valid key. Session cookies are ignored.
  */
 export async function authenticateApiKey(key: string): Promise<AuthResult> {
-  if (!key.startsWith(LIVE_KEY_PREFIX)) return { ok: false, status: 401 };
+  try {
+    if (!key.startsWith(LIVE_KEY_PREFIX)) return { ok: false, status: 401 };
 
-  const record = await db.apiKey.findUnique({ where: { keyHash: hashApiKey(key) } });
-  if (!record || record.revokedAt) return { ok: false, status: 401 };
+    const record = await db.apiKey.findUnique({ where: { keyHash: hashApiKey(key) } });
+    if (!record || record.revokedAt) return { ok: false, status: 401 };
 
-  await db.apiKey
-    .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => {});
+    await db.apiKey
+      .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
+      .catch(() => {});
 
-  return resolveAuth(record.email, record.userId);
+    return await resolveAuth(record.email, record.userId);
+  } catch {
+    return { ok: false, status: 401 };
+  }
 }
 
 /** Authenticates a request bearing `Authorization: Bearer sk_live_...`. */
 export async function getApiAuth(req: Request): Promise<AuthResult> {
-  const key = extractBearerToken(req);
-  if (!key) return { ok: false, status: 401 };
-  return authenticateApiKey(key);
+  try {
+    const key = extractBearerToken(req);
+    if (!key) return { ok: false, status: 401 };
+    return await authenticateApiKey(key);
+  } catch {
+    return { ok: false, status: 401 };
+  }
 }
 
 export function apiAuthError(auth: { ok: false; status: 401 | 403 }) {
@@ -60,4 +68,3 @@ export function toJsonResponse<T>(result: PublicResult<T>) {
   if (!result.ok) return apiError(result.status, result.error);
   return NextResponse.json(result.data, { status: result.status ?? 200 });
 }
-

@@ -43,21 +43,25 @@ async function verifySolomonToken(
   _req: Request,
   bearerToken?: string,
 ): Promise<AuthInfo | undefined> {
-  if (!bearerToken) return undefined;
-  const auth = await authenticateApiKey(bearerToken);
-  if (!auth.ok) {
-    // Unknown/revoked key → 401. Whitelist miss → empty scopes → 403.
-    if (auth.status === 403) {
-      return { token: bearerToken, clientId: "forbidden", scopes: [] };
+  try {
+    if (!bearerToken) return undefined;
+    const auth = await authenticateApiKey(bearerToken);
+    if (!auth.ok) {
+      // Unknown/revoked key → 401. Whitelist miss → empty scopes → 403.
+      if (auth.status === 403) {
+        return { token: bearerToken, clientId: "forbidden", scopes: [] };
+      }
+      return undefined;
     }
+    return {
+      token: bearerToken,
+      clientId: auth.userId,
+      scopes: auth.canEdit ? ["read", "write"] : ["read"],
+      extra: { user: auth },
+    };
+  } catch {
     return undefined;
   }
-  return {
-    token: bearerToken,
-    clientId: auth.userId,
-    scopes: auth.canEdit ? ["read", "write"] : ["read"],
-    extra: { user: auth },
-  };
 }
 
 const inner = createMcpHandler(
