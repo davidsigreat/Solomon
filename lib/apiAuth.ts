@@ -22,16 +22,14 @@ export function extractBearerToken(req: Request): string | null {
 
 /**
  * Resolves a minted `sk_live_*` key through `ApiKey` + `resolveAuth`.
- * Revoked or unknown keys are 401. Touches `lastUsedAt` on a valid key.
- * Session cookies are ignored — API-key auth only.
- *
- * Any throw during lookup (bad hash input, Prisma/DB error) is treated as
- * an invalid credential and surfaces as 401 rather than a 500.
+ * Unknown, malformed, revoked, or unreadable keys are 401 — never throw
+ * (Prisma/DB/hash errors are swallowed into 401 rather than a 500).
+ * Touches `lastUsedAt` on a valid key. Session cookies are ignored.
  */
 export async function authenticateApiKey(key: string): Promise<AuthResult> {
-  if (!key.startsWith(LIVE_KEY_PREFIX)) return { ok: false, status: 401 };
-
   try {
+    if (!key.startsWith(LIVE_KEY_PREFIX)) return { ok: false, status: 401 };
+
     const record = await db.apiKey.findUnique({ where: { keyHash: hashApiKey(key) } });
     if (!record || record.revokedAt) return { ok: false, status: 401 };
 
@@ -39,7 +37,7 @@ export async function authenticateApiKey(key: string): Promise<AuthResult> {
       .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
       .catch(() => {});
 
-    return resolveAuth(record.email, record.userId);
+    return await resolveAuth(record.email, record.userId);
   } catch {
     return { ok: false, status: 401 };
   }
@@ -47,9 +45,13 @@ export async function authenticateApiKey(key: string): Promise<AuthResult> {
 
 /** Authenticates a request bearing `Authorization: Bearer sk_live_...`. */
 export async function getApiAuth(req: Request): Promise<AuthResult> {
-  const key = extractBearerToken(req);
-  if (!key) return { ok: false, status: 401 };
-  return authenticateApiKey(key);
+  try {
+    const key = extractBearerToken(req);
+    if (!key) return { ok: false, status: 401 };
+    return await authenticateApiKey(key);
+  } catch {
+    return { ok: false, status: 401 };
+  }
 }
 
 /** Bearer auth + AppUser VIEWER (canEdit=false) → 403. Use on every mutating /api/v1 route. */
