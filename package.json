@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint app/api/v1 app/api/mcp lib/mcp lib/apiAuth.ts lib/solomonPublic.ts lib/projectAccess.ts lib/getUser.ts --max-warnings 0",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
