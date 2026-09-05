@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, apiAuthError, apiError } from "@/lib/apiAuth";
 import { getProjectRole } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -8,11 +8,11 @@ type NeonUser = { id: string; name: string | null; email: string | null; image: 
 
 export async function GET(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { id } = await params;
   const role = await getProjectRole(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!role) return apiError(404, "Not found");
 
   const members = await db.$queryRaw<(NeonUser & { memberId: string; userId: string; role: string })[]>`
     SELECT pm.id AS "memberId", pm."userId", pm.role, u.name, u.email, u.image::text
@@ -26,12 +26,13 @@ export async function GET(req: Request, { params }: Ctx) {
 
 export async function POST(req: Request, { params }: Ctx) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
+  if (!auth.canEdit) return apiError(403, "Forbidden");
 
   const { id } = await params;
   const callerRole = await getProjectRole(id, auth);
-  if (!callerRole) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (callerRole !== "OWNER") return NextResponse.json({ error: "Only owner can manage contributors" }, { status: 403 });
+  if (!callerRole) return apiError(404, "Not found");
+  if (callerRole !== "OWNER") return apiError(403, "Only owner can manage contributors");
 
   const { email, role = "EDITOR" } = await req.json();
   if (!email?.includes("@")) return NextResponse.json({ error: "Invalid email" }, { status: 400 });

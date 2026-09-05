@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, apiAuthError, toJsonResponse } from "@/lib/apiAuth";
+import { getProjectRole } from "@/lib/projectAccess";
+import { logPublicSprint } from "@/lib/solomonPublic";
 import { db } from "@/lib/db";
 import { SprintMode } from "@prisma/client";
 
 export async function GET(req: Request) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   const mode = searchParams.get("mode");
+
+  if (projectId) {
+    const role = await getProjectRole(projectId, auth);
+    if (!role) return NextResponse.json({ sprints: [] });
+  }
 
   const sprints = await db.sprintSession.findMany({
     where: {
@@ -24,20 +31,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
-  const { taskName, projectId, duration, mode, completed } = await req.json();
-  if (!duration) return NextResponse.json({ error: "duration is required" }, { status: 400 });
-
-  const sprint = await db.sprintSession.create({
-    data: {
-      taskName: taskName || null,
-      projectId: projectId || null,
-      duration,
-      mode: (mode ?? "FOCUS") as SprintMode,
-      completed: completed ?? true,
-      userId: auth.userId,
-    },
-  });
-  return NextResponse.json({ sprint }, { status: 201 });
+  const body = await req.json();
+  return toJsonResponse(await logPublicSprint(auth, body));
 }

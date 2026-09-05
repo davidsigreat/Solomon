@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, apiAuthError, toJsonResponse } from "@/lib/apiAuth";
 import { projectAccessWhere } from "@/lib/projectAccess";
+import { createPublicProject } from "@/lib/solomonPublic";
 import { db } from "@/lib/db";
 
 export async function GET(req: Request) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
+  if (!auth.ok) return apiAuthError(auth);
 
   const projects = await db.project.findMany({
     where: projectAccessWhere(auth),
@@ -17,14 +18,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const auth = await getApiAuth(req);
-  if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
-  if (!auth.canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!auth.ok) return apiAuthError(auth);
 
-  const { name, color, description } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
-
-  const project = await db.project.create({
-    data: { name, color: color ?? "#06b6d4", description, userId: auth.userId },
-  });
-  return NextResponse.json({ project }, { status: 201 });
+  const body = await req.json();
+  return toJsonResponse(await createPublicProject(auth, body));
 }

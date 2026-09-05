@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
+import type { AuthedUser } from "@/lib/getUser";
 
 export type ProjectRole = "OWNER" | "EDITOR" | "VIEWER";
+
+export type MutateAccess =
+  | { ok: true; role: ProjectRole }
+  | { ok: false; status: 403 | 404; error: string };
 
 /**
  * Returns the effective role of `auth` on `projectId`, or null if no access.
@@ -37,4 +42,19 @@ export function projectAccessWhere(auth: { userId: string; isAdmin: boolean }) {
       { members: { some: { userId: auth.userId } } },
     ],
   };
+}
+
+/**
+ * App-level VIEWER is always read-only. Otherwise the project role must be
+ * EDITOR or OWNER (creator / admin count as OWNER).
+ */
+export async function requireProjectMutate(
+  projectId: string,
+  auth: AuthedUser,
+): Promise<MutateAccess> {
+  if (!auth.canEdit) return { ok: false, status: 403, error: "Forbidden" };
+  const role = await getProjectRole(projectId, auth);
+  if (!role) return { ok: false, status: 404, error: "Not found" };
+  if (role === "VIEWER") return { ok: false, status: 403, error: "Forbidden" };
+  return { ok: true, role };
 }

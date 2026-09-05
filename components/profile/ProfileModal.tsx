@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 
+const KEY_CREATE_TIMEOUT_MS = 20_000;
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -24,27 +26,41 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   const [newKeyName, setNewKeyName] = useState("");
   const [creatingKey, setCreatingKey] = useState(false);
   const [mintedKey, setMintedKey] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   async function loadKeys() {
-    const res = await fetch("/api/keys");
-    const data = await res.json();
-    setApiKeys(data.keys ?? []);
+    try {
+      const res = await fetch("/api/keys");
+      const data = await res.json().catch(() => ({ keys: [] }));
+      setApiKeys(data.keys ?? []);
+    } catch {
+      setApiKeys([]);
+    }
   }
 
   async function handleCreateKey() {
-    if (!newKeyName.trim()) return;
+    if (!newKeyName.trim() || creatingKey) return;
     setCreatingKey(true);
-    const res = await fetch("/api/keys", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newKeyName.trim() }),
-    });
-    const data = await res.json();
-    setCreatingKey(false);
-    if (data.key) {
+    setKeyError(null);
+    try {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newKeyName.trim() }),
+        signal: AbortSignal.timeout(KEY_CREATE_TIMEOUT_MS),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.key !== "string" || !data.key.startsWith("sk_live_")) {
+        setKeyError(typeof data.error === "string" ? data.error : "Could not create key");
+        return;
+      }
       setMintedKey(data.key);
       setNewKeyName("");
-      loadKeys();
+      await loadKeys();
+    } catch {
+      setKeyError("Could not create key");
+    } finally {
+      setCreatingKey(false);
     }
   }
 
@@ -59,6 +75,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
       setImage(session.user.image ?? "");
       setSaved(false);
       setMintedKey(null);
+      setKeyError(null);
       loadKeys();
     }
   }, [isOpen, session]);
@@ -157,7 +174,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
           <div className="pt-1 border-t border-white/[0.06]">
             <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mt-4 mb-1.5">API Keys</label>
             <p className="text-[10px] text-zinc-700 mb-2.5">
-              Use a key as a <code className="text-zinc-500">Bearer</code> token against <code className="text-zinc-500">/api/v1/*</code> to connect external apps to your projects and tasks.
+              Use a key as a <code className="text-zinc-500">Bearer</code> token against <code className="text-zinc-500">/api/v1/*</code> or MCP at <code className="text-zinc-500">/api/mcp</code> to connect agents and external apps to your projects and tasks.
             </p>
 
             {mintedKey && (
@@ -201,6 +218,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
                 {creatingKey ? "Creating…" : "Create key"}
               </button>
             </div>
+            {keyError && <p className="text-[10px] text-red-400 mt-1.5">{keyError}</p>}
           </div>
 
           {/* Actions */}
