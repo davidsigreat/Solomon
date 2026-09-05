@@ -1,12 +1,23 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth/server";
 
-// Auth is handled at the component level via authClient.useSession()
-// The dashboard and admin pages redirect to /login if no session is found
+const neonAuth = auth.middleware({ loginUrl: "/login" });
+
+/**
+ * Gate protected pages before HTML ships. `/login`, `/api/**` (including
+ * `/api/auth/**` and API-key routes), and static assets are outside the
+ * matcher so they stay reachable without a session cookie.
+ */
 export function proxy(request: NextRequest) {
-  return NextResponse.next();
+  return neonAuth(request);
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/analytics/:path*",
+    "/notifications/:path*",
+  ],
 };
