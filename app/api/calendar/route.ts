@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthorizedUser } from "@/lib/getUser";
 import { db } from "@/lib/db";
 import { google } from "googleapis";
+import { getCalendarDayWindow } from "@/lib/calendarDay";
 
 async function getCalendarClient(userId: string, isAdmin: boolean) {
   // Pull the user's Google OAuth tokens stored by Neon Auth (Better Auth)
@@ -55,14 +56,13 @@ export async function GET() {
   }
 
   try {
-    const now = new Date();
-    const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);   endOfDay.setHours(23, 59, 59, 999);
+    const { timeMin, timeMax, timeZone } = getCalendarDayWindow();
 
     const res = await calendar.events.list({
       calendarId: "primary",
-      timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString(),
+      timeMin,
+      timeMax,
+      timeZone,
       singleEvents: true,
       orderBy: "startTime",
     });

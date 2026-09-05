@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
-import WeatherWidget from "@/components/WeatherWidget";
 import CalendarWidget from "@/components/CalendarWidget";
 import ChronoMatrix from "@/components/sprint/ChronoMatrix";
 import KanbanBoard from "@/components/KanbanBoard";
@@ -146,7 +145,6 @@ export default function DashboardPage() {
               <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">Widgets</span>
               <button onClick={() => setMobileRightOpen(false)} className="w-6 h-6 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.06] transition-all text-base">×</button>
             </div>
-            <WeatherWidget />
             <CalendarWidget />
             <ChronoMatrix projects={projects} />
           </div>
@@ -246,7 +244,6 @@ export default function DashboardPage() {
           {/* Right panel - hidden on mobile */}
           {rightOpen && (
             <aside className="hidden md:flex w-[300px] flex-shrink-0 flex-col overflow-y-auto border-l border-white/[0.05]" style={{ gap: '1rem', padding: '1.25rem' }}>
-              <WeatherWidget />
               <CalendarWidget />
               <ChronoMatrix projects={projects} />
             </aside>
