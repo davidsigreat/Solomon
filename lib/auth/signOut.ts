@@ -31,5 +31,6 @@ async function expireNeonAuthCookies() {
       secure: true,
       sameSite: "lax",
     });
+    store.delete(cookie.name);
   }
 }

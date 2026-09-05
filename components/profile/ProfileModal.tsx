@@ -95,23 +95,37 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   }
 
   async function sessionIsCleared() {
-    const me = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
-    if (me.ok) return false;
-    const sessionRes = await fetch("/api/auth/get-session", { credentials: "include", cache: "no-store" });
-    const sessionJson = await sessionRes.json().catch(() => null);
-    return !sessionJson?.user && !sessionJson?.session;
+    try {
+      const me = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+      // 200 = still authed. Only 401/403 count as confirmed signed-out.
+      if (me.ok || (me.status !== 401 && me.status !== 403)) return false;
+
+      const sessionRes = await fetch("/api/auth/get-session", { credentials: "include", cache: "no-store" });
+      const sessionJson = await sessionRes.json().catch(() => null);
+      return !sessionJson?.user && !sessionJson?.session;
+    } catch {
+      return false;
+    }
   }
 
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
 
-    const timeoutId = window.setTimeout(() => setSigningOut(false), SIGN_OUT_TIMEOUT_MS);
+    const controller = new AbortController();
+    // Timeout only unsticks the button — never treat it as a successful logout.
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+      setSigningOut(false);
+    }, SIGN_OUT_TIMEOUT_MS);
 
     try {
       // Neon docs: auth.signOut() on the server clears session + session_data cookies.
-      // authClient.signOut() alone left those cookies live (QA: /api/auth/me still 200).
-      const res = await fetch("/api/logout", { method: "POST", credentials: "include" });
+      const res = await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error("sign out failed");
       const cleared = await sessionIsCleared();
       if (!cleared) throw new Error("session still live");
