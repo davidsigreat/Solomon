@@ -120,13 +120,25 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     }, SIGN_OUT_TIMEOUT_MS);
 
     try {
-      // Neon docs: auth.signOut() on the server clears session + session_data cookies.
+      // Server logout must include expire Set-Cookie; cookies().set does not.
       const res = await fetch("/api/logout", {
         method: "POST",
         credentials: "include",
         signal: controller.signal,
       });
       if (!res.ok) throw new Error("sign out failed");
+      // After the browser applies those Set-Cookie headers, also hit the Neon client
+      // path (intercepted /api/auth/sign-out) so handler + wipe both run.
+      try {
+        await Promise.race([
+          authClient.signOut(),
+          new Promise((_, reject) => {
+            window.setTimeout(() => reject(new Error("client signOut timeout")), 4_000);
+          }),
+        ]);
+      } catch {
+        // Client signOut is secondary; confirm via /api/auth/me below.
+      }
       const cleared = await sessionIsCleared();
       if (!cleared) throw new Error("session still live");
       window.clearTimeout(timeoutId);
