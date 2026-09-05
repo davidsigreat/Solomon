@@ -7,6 +7,16 @@ import type { CalendarEvent } from "@/types";
 
 type CalendarError = "no_token" | "api_error" | "unconfigured" | null;
 
+function mapCalendarError(status: number, d: { error?: string; code?: string }): CalendarError {
+  if (d.code === "no_token" || d.code === "unconfigured" || d.code === "api_error") return d.code;
+  if (!d.error) return null;
+  if (status === 401 || d.error === "Unauthorized" || d.error === "No calendar access token") {
+    return "no_token";
+  }
+  if (d.error === "Google Calendar not configured") return "unconfigured";
+  return "api_error";
+}
+
 function isActive(e: CalendarEvent) {
   const now = new Date();
   return new Date(e.start) <= now && new Date(e.end) >= now;
@@ -30,18 +40,15 @@ export default function CalendarWidget() {
   useEffect(() => {
     const load = () =>
       fetch("/api/calendar")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.error === "Google Calendar not configured") {
-            setCalError("unconfigured");
-          } else if (d.error === "No calendar access token") {
-            setCalError("no_token");
-          } else if (d.error) {
-            setCalError("api_error");
-          } else {
-            setCalError(null);
-            setEvents(d.events ?? []);
+        .then(async (r) => {
+          const d = await r.json().catch(() => ({ error: "Failed to fetch events" }));
+          const mapped = mapCalendarError(r.status, d);
+          if (mapped) {
+            setCalError(mapped);
+            return;
           }
+          setCalError(null);
+          setEvents(d.events ?? []);
         })
         .catch(() => setCalError("api_error"))
         .finally(() => setLoading(false));

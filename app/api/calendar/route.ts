@@ -5,7 +5,6 @@ import { google } from "googleapis";
 import { getCalendarDayWindow } from "@/lib/calendarDay";
 
 async function getCalendarClient(userId: string, isAdmin: boolean) {
-  // Pull the user's Google OAuth tokens stored by Neon Auth (Better Auth)
   const rows = await db.$queryRaw<{
     accessToken: string | null;
     refreshToken: string | null;
@@ -32,7 +31,6 @@ async function getCalendarClient(userId: string, isAdmin: boolean) {
     return google.calendar({ version: "v3", auth: client });
   }
 
-  // Fallback: env-var refresh token (admin only, for backwards compat)
   if (isAdmin && process.env.GOOGLE_CALENDAR_REFRESH_TOKEN) {
     const client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -45,17 +43,38 @@ async function getCalendarClient(userId: string, isAdmin: boolean) {
   return null;
 }
 
+type CalendarCode = "no_token" | "unconfigured" | "api_error";
+
+function fail(code: CalendarCode, error: string, status: number) {
+  return NextResponse.json({ error, code, events: [] }, { status });
+}
+
+function googleClientConfigured() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
+}
+
+function classifyGoogleError(err: unknown): CalendarCode {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/invalid_client|unauthorized_client|client.?id|client.?secret/i.test(message)) return "unconfigured";
+  if (/invalid_grant|insufficient|scope|invalid.?credentials/i.test(message)) return "no_token";
+  return "api_error";
+}
+
 export async function GET() {
   const auth = await getAuthorizedUser();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized", events: [] }, { status: auth.status });
 
-  const calendar = await getCalendarClient(auth.userId, auth.isAdmin);
-
-  if (!calendar) {
-    return NextResponse.json({ error: "No calendar access token", events: [] }, { status: 200 });
-  }
-
   try {
+    const calendar = await getCalendarClient(auth.userId, auth.isAdmin);
+
+    if (!calendar) {
+      return fail("no_token", "No calendar access token", 200);
+    }
+
+    if (!googleClientConfigured()) {
+      return fail("unconfigured", "Google Calendar not configured", 503);
+    }
+
     const { timeMin, timeMax, timeZone } = getCalendarDayWindow();
 
     const res = await calendar.events.list({
@@ -67,7 +86,7 @@ export async function GET() {
       orderBy: "startTime",
     });
 
-    const events = (res.data.items ?? []).map(e => ({
+    const events = (res.data.items ?? []).map((e) => ({
       id: e.id ?? "",
       summary: e.summary ?? "Untitled Event",
       start: e.start?.dateTime ?? e.start?.date ?? "",
@@ -78,7 +97,10 @@ export async function GET() {
 
     return NextResponse.json({ events });
   } catch (err) {
-    console.error("Calendar error:", err);
-    return NextResponse.json({ error: "Failed to fetch events", events: [] }, { status: 500 });
+    const code = classifyGoogleError(err);
+    console.error("Calendar error:", code);
+    if (code === "no_token") return fail("no_token", "No calendar access token", 200);
+    if (code === "unconfigured") return fail("unconfigured", "Google Calendar not configured", 503);
+    return fail("api_error", "Failed to fetch events", 500);
   }
 }
