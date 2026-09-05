@@ -2,14 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth/client";
+import { formatCalendarDay, formatCalendarTime } from "@/lib/calendarDay";
 import type { CalendarEvent } from "@/types";
 
 type CalendarError = "no_token" | "api_error" | "unconfigured" | null;
-
-function formatTime(iso: string) {
-  if (!iso.includes("T")) return "All day";
-  return new Date(iso).toLocaleTimeString("en", { hour: "numeric", minute: "2-digit", hour12: true });
-}
 
 function isActive(e: CalendarEvent) {
   const now = new Date();
@@ -55,9 +51,7 @@ export default function CalendarWidget() {
     return () => clearInterval(id);
   }, []);
 
-  const today = new Date().toLocaleDateString("en", {
-    weekday: "long", month: "long", day: "numeric",
-  });
+  const today = formatCalendarDay();
 
   return (
     <div className="rounded-2xl border border-white/[0.06] bg-[#0d1424]" style={{ padding: '1rem' }}>
@@ -139,7 +133,7 @@ export default function CalendarWidget() {
                     {soon && !active && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full flex-shrink-0 animate-pulse">SOON</span>}
                   </div>
                   <p className="text-[10px] text-[#475569] mt-0.5">
-                    {formatTime(event.start)}{event.start.includes("T") ? ` — ${formatTime(event.end)}` : ""}
+                    {formatCalendarTime(event.start)}{event.start.includes("T") ? ` — ${formatCalendarTime(event.end)}` : ""}
                   </p>
                 </div>
               </div>

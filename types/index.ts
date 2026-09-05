@@ -1,11 +1,3 @@
-export interface WeatherData {
-  temperature: number; feelsLike: number; condition: string;
-  humidity: number; windSpeed: number; icon: string; high: number; low: number;
-  forecast: ForecastDay[];
-}
-export interface ForecastDay {
-  date: string; high: number; low: number; condition: string; icon: string;
-}
 export interface CalendarEvent {
   id: string; summary: string; start: string; end: string;
   location?: string; description?: string; colorId?: string;
