@@ -32,9 +32,9 @@ The architecture consolidates frontend rendering and backend logic into a singul
 | :--- | :--- | :--- |
 | **Framework** | Next.js 14+ (App Router) | React client components + native Node.js API/Serverless routes |
 | **Styling** | Tailwind CSS + CSS Modules | Cyberpunk/holographic styling, custom animations, responsive layouts |
-| **Database** | Supabase (PostgreSQL) | Persistent state, chat histories, sprint logs, Obsidian sync cache |
+| **Database** | Neon (PostgreSQL) | Persistent state, chat histories, sprint logs, Obsidian sync cache |
 | **ORM** | Prisma | Type-safe queries and automated schema migrations |
-| **Authentication** | Auth.js (NextAuth.js v5) | Single-user whitelist via Google or GitHub OAuth |
+| **Authentication** | Neon Auth | Session cookie + AppUser whitelist (`getAuthorizedUser`) |
 | **AI Processing** | Vercel AI SDK + Anthropic API | Streaming conversational tokens, structured synthesis, Obsidian NLP |
 | **External APIs** | Google Calendar API, GitHub GraphQL API, OpenWeatherMap | Schedules, coding throughput, ambient context |
 | **Obsidian Bridge** | Obsidian Local REST API plugin + MCP Server | Bidirectional vault read/write from JARVIS command layer |
@@ -42,8 +42,9 @@ The architecture consolidates frontend rendering and backend logic into a singul
 ### Key Environment Variables
 
 ```env
-# Auth
-NEXTAUTH_SECRET=
+# Auth (Neon Auth — not NextAuth)
+NEON_AUTH_BASE_URL=
+NEON_AUTH_COOKIE_SECRET=
 AUTHORIZED_EMAIL=
 
 # Database
@@ -104,7 +105,7 @@ Central human-machine interface styled as a command terminal.
 **State Shape:**
 ```ts
 type Session = { id: string; title: string; createdAt: Date }
-type Message = { id: string; sender: "USER" | "JARVIS"; content: string; createdAt: Date }
+type Message = { id: string; sender: "USER" | "SOLOMON"; content: string; createdAt: Date }
 
 // Client state
 const [sessions, setSessions] = useState<Session[]>([])
@@ -113,29 +114,33 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
 **Vercel AI SDK Integration:**
 ```ts
-// app/api/chat/route.ts
-import { streamText } from "ai"
+// app/api/chat/route.ts — Neon Auth on this route, not NextAuth
+import { streamText, convertToModelMessages } from "ai"
 import { anthropic } from "@ai-sdk/anthropic"
+import { getAuthorizedUser } from "@/lib/getUser"
 
 export async function POST(req: Request) {
+  const auth = await getAuthorizedUser()
+  if (!auth.ok) return Response.json({ error: "Unauthorized" }, { status: auth.status })
+
   const { messages, sessionId } = await req.json()
   const result = streamText({
-    model: anthropic("claude-opus-4-5"),
-    system: JARVIS_SYSTEM_PROMPT,
-    messages,
+    model: anthropic("claude-sonnet-5"),
+    system: SOLOMON_SYSTEM_PROMPT, // persona: SOLOMON — Your personal counsel.
+    messages: await convertToModelMessages(messages),
     onFinish: async ({ text }) => {
-      await db.message.createMany({ data: [userMsg, { content: text, sender: "JARVIS", sessionId }] })
+      await db.message.createMany({ data: [userMsg, { content: text, sender: "SOLOMON", sessionId }] })
     }
   })
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse()
 }
 ```
 
 **UI Components:**
-- `<SessionSidebar />` — lists sessions from Supabase, supports rename on double-click, delete on hover
+- `<SessionSidebar />` — lists sessions from Postgres via `/api/sessions`, supports rename on double-click, delete on hover
 - `<MessageFeed />` — virtualized scroll (use `react-virtuoso` for perf), streams tokens via `useChat`
 - `<TerminalInput />` — cyan-bordered textarea with slash-command detection (`/brief`, `/note`, `/search`)
-- Slash commands route to specialized handlers before hitting the main chat stream
+- Slash commands are parsed and marked on `Message.command` (Wave 1 stub). Later waves add Obsidian handlers.
 
 **Buildable Checklist:**
 - [ ] `npm install ai @ai-sdk/anthropic react-virtuoso`
@@ -681,22 +686,25 @@ model User {
 
 model Session {
   id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String    // neon_auth user id — no NextAuth / User FK
   title     String    @default("New Intelligence Feed")
   messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@map("chat_sessions")
 }
 
 model Message {
   id          String   @id @default(cuid())
   sessionId   String
   session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sender      String   // "USER" | "JARVIS"
+  sender      String   // "USER" | "SOLOMON"
   content     String   @db.Text
   command     String?  // e.g. "/note", "/recall", "/brief" — null for plain chat
   createdAt   DateTime @default(now())
+
+  @@map("chat_messages")
 }
 
 model SprintSession {
@@ -773,7 +781,7 @@ model ObsidianSync {
 - [ ] **Step 1:** Run structural initialization, configure Tailwind tokens, push base project to Vercel with environment variables set.
 - [ ] **Step 2:** Configure Auth.js with Google OAuth, deploy gatekeeper middleware, verify `/login` redirect blocks unauthorized access.
 - [ ] **Step 3:** Run Prisma migrations against Supabase. Confirm all models (`User`, `Session`, `Message`, `SprintSession`, `BriefingCache`, `ObsidianSync`) are created.
-- [ ] **Step 4:** Build Command Center UI — session sidebar, message feed, streaming chat, terminal input with slash command detection.
+- [x] **Step 4:** Build Command Center UI — session sidebar, message feed, streaming chat, terminal input with slash command detection.
 - [ ] **Step 5:** Integrate Calendar and GitHub API routes. Confirm secure token passing from NextAuth to server-side handlers. Render `<ChronosGrid />` and `<DevVitals />`.
 - [ ] **Step 6:** Build and test `<ChronoMatrix />` — timer cycles, audio chime, sprint logging to DB.
 - [ ] **Step 7:** Wire up Briefing Engine. Confirm `Promise.allSettled` aggregation, JARVIS persona stream, and `BriefingCache` DB write.

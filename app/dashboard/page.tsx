@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/layout/Sidebar";
+import Sidebar, { type DashboardView } from "@/components/layout/Sidebar";
 import WeatherWidget from "@/components/WeatherWidget";
 import CalendarWidget from "@/components/CalendarWidget";
 import ChronoMatrix from "@/components/sprint/ChronoMatrix";
 import KanbanBoard from "@/components/KanbanBoard";
+import CommandCenter from "@/components/command/CommandCenter";
 import dynamic from "next/dynamic";
 const ProfileModal = dynamic(() => import("@/components/profile/ProfileModal"), { ssr: false });
 import NotificationBell from "@/components/NotificationBell";
@@ -58,6 +59,7 @@ export default function DashboardPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileRightOpen, setMobileRightOpen] = useState(false);
+  const [view, setView] = useState<DashboardView>("board");
 
   // Persist sidebar state
   useEffect(() => {
@@ -65,6 +67,25 @@ export default function DashboardPage() {
     const r = localStorage.getItem("sidebar-right");
     if (l !== null) setLeftOpen(l !== "false");
     if (r !== null) setRightOpen(r !== "false");
+    if (new URLSearchParams(window.location.search).get("view") === "command") {
+      setView("command");
+    }
+  }, []);
+
+  const selectView = useCallback((next: DashboardView) => {
+    setView(next);
+    if (next === "command") {
+      setActiveProject(null);
+      window.history.replaceState(null, "", "/dashboard?view=command");
+    } else {
+      window.history.replaceState(null, "", "/dashboard");
+    }
+  }, []);
+
+  const selectProject = useCallback((id: string | null) => {
+    setActiveProject(id);
+    setView("board");
+    window.history.replaceState(null, "", "/dashboard");
   }, []);
 
   const toggleLeft = useCallback(() => setLeftOpen(v => { localStorage.setItem("sidebar-left", String(!v)); return !v; }), []);
@@ -90,7 +111,7 @@ export default function DashboardPage() {
       fetch("/api/projects").then(r => r.ok ? r.json() : { projects: [] }).then(d => { setProjects(d.projects ?? []); setProjectsLoading(false); }),
       fetch("/api/auth/me").then(r => r.ok ? r.json() : { isAdmin: false }).then(d => setIsAdmin(d.isAdmin ?? false)),
     ]).catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Must be before any early return — Rules of Hooks
   const activeProjectData = useMemo(() => projects.find(p => p.id === activeProject), [projects, activeProject]);
@@ -114,7 +135,9 @@ export default function DashboardPage() {
             projects={projects}
             onRefresh={loadProjects}
             activeProject={activeProject}
-            onSelectProject={setActiveProject}
+            onSelectProject={selectProject}
+            activeView={view}
+            onSelectView={selectView}
             isAdmin={isAdmin}
           />
         </div>
@@ -129,7 +152,9 @@ export default function DashboardPage() {
               projects={projects}
               onRefresh={loadProjects}
               activeProject={activeProject}
-              onSelectProject={(id) => { setActiveProject(id); setMobileMenuOpen(false); }}
+              onSelectProject={(id) => { selectProject(id); setMobileMenuOpen(false); }}
+              activeView={view}
+              onSelectView={(next) => { selectView(next); setMobileMenuOpen(false); }}
               isAdmin={isAdmin}
               onClose={() => setMobileMenuOpen(false)}
             />
@@ -181,9 +206,11 @@ export default function DashboardPage() {
                   style={{ backgroundColor: activeProjectData.color, boxShadow: `0 0 8px ${activeProjectData.color}60` }} />
               )}
               <h1 className="text-sm font-semibold text-zinc-100 truncate">
-                {activeProjectData?.name ?? "All Projects"}
+                {view === "command" ? "Command Center" : (activeProjectData?.name ?? "All Projects")}
               </h1>
-              {activeProjectData?.description && (
+              {view === "command" ? (
+                <span className="text-xs text-zinc-600 hidden lg:block truncate">— Your personal counsel.</span>
+              ) : activeProjectData?.description && (
                 <span className="text-xs text-zinc-600 hidden lg:block truncate">— {activeProjectData.description}</span>
               )}
             </div>
@@ -196,7 +223,7 @@ export default function DashboardPage() {
             <Clock />
           </div>
 
-          <NotificationBell onSelectProject={setActiveProject} />
+          <NotificationBell onSelectProject={selectProject} />
 
           {/* Mobile widgets button */}
           <button
@@ -234,13 +261,17 @@ export default function DashboardPage() {
         {/* Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           <div className="flex-1 overflow-hidden flex flex-col min-w-0 min-h-0" style={{ padding: '1.5rem 1.75rem' }}>
-            <KanbanBoard
-              projects={projects}
-              activeProjectId={activeProject}
-              onSelectProject={setActiveProject}
-              onRefreshProjects={loadProjects}
-              projectsLoading={projectsLoading}
-            />
+            {view === "command" ? (
+              <CommandCenter />
+            ) : (
+              <KanbanBoard
+                projects={projects}
+                activeProjectId={activeProject}
+                onSelectProject={selectProject}
+                onRefreshProjects={loadProjects}
+                projectsLoading={projectsLoading}
+              />
+            )}
           </div>
 
           {/* Right panel - hidden on mobile */}

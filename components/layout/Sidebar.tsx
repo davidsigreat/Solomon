@@ -9,16 +9,20 @@ const PRESET_COLORS = [
   "#f87171","#38bdf8","#fb923c","#a78bfa",
 ];
 
+export type DashboardView = "board" | "command";
+
 interface SidebarProps {
   projects: Project[];
   onRefresh: () => void;
   activeProject: string | null;
   onSelectProject: (id: string | null) => void;
+  activeView?: DashboardView;
+  onSelectView?: (view: DashboardView) => void;
   isAdmin?: boolean;
   onClose?: () => void;
 }
 
-export default function Sidebar({ projects, onRefresh, activeProject, onSelectProject, isAdmin, onClose }: SidebarProps) {
+export default function Sidebar({ projects, onRefresh, activeProject, onSelectProject, activeView = "board", onSelectView, isAdmin, onClose }: SidebarProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", color: "#8b5cf6", description: "" });
@@ -67,9 +71,28 @@ export default function Sidebar({ projects, onRefresh, activeProject, onSelectPr
       {/* Nav */}
       <div className="px-3 pb-2 flex flex-col gap-1">
         <button
-          onClick={() => onSelectProject(null)}
+          onClick={() => {
+            onSelectView?.("command");
+            onClose?.();
+          }}
           className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm transition-all ${
-            activeProject === null
+            activeView === "command"
+              ? "bg-white/[0.07] text-zinc-100 font-medium"
+              : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]"
+          }`}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
+            <path d="M2 3.5h10M2 7h7M2 10.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          Command Center
+        </button>
+        <button
+          onClick={() => {
+            onSelectView?.("board");
+            onSelectProject(null);
+          }}
+          className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm transition-all ${
+            activeView === "board" && activeProject === null
               ? "bg-white/[0.07] text-zinc-100 font-medium"
               : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]"
           }`}
@@ -142,7 +165,10 @@ export default function Sidebar({ projects, onRefresh, activeProject, onSelectPr
           )}
           {projects.map((p) => (
             <div key={p.id}
-              onClick={() => onSelectProject(activeProject === p.id ? null : p.id)}
+              onClick={() => {
+                onSelectView?.("board");
+                onSelectProject(activeProject === p.id ? null : p.id);
+              }}
               className={`group flex items-center gap-2.5 px-4 py-2.5 rounded-xl cursor-pointer transition-all ${
                 activeProject === p.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"
               }`}>

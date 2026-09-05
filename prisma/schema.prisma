@@ -187,3 +187,37 @@ model SprintSession {
   @@index([projectId])
   @@map("sprint_sessions")
 }
+
+// ─────────────────────────────────────────────────────────────────
+//  COMMAND CENTER  (chat sessions + messages)
+//  userId is the Neon Auth user id (not AppUser.id).
+//  Mapped off the public `sessions` name to avoid colliding with
+//  neon_auth session tables.
+// ─────────────────────────────────────────────────────────────────
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String                         // neon_auth user id
+  title     String    @default("New Intelligence Feed")
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("chat_sessions")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    String                         // "USER" | "SOLOMON"
+  content   String   @db.Text
+  command   String?                        // e.g. "/note" — null for plain chat
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}

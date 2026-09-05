@@ -47,3 +47,22 @@ export type TimerAction =
   | { type: "START" } | { type: "PAUSE" } | { type: "RESET" } | { type: "TICK" }
   | { type: "CYCLE_COMPLETE" } | { type: "SET_TASK"; task: string }
   | { type: "SET_PROJECT"; projectId: string } | { type: "SET_MODE"; mode: TimerMode; seconds: number };
+
+export type ChatSender = "USER" | "SOLOMON";
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  sessionId: string;
+  sender: ChatSender;
+  content: string;
+  command: string | null;
+  createdAt: string;
+}

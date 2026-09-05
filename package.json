@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
@@ -19,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/react": "^3.0.186",
     "@anthropic-ai/sdk": "^0.96.0",
     "@neondatabase/auth": "^0.3.0-beta",
     "@prisma/client": "^6.19.3",
