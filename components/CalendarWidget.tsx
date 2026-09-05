@@ -7,12 +7,13 @@ import type { CalendarEvent } from "@/types";
 
 type CalendarError = "no_token" | "api_error" | "unconfigured" | null;
 
-function mapCalendarError(status: number, error?: string): CalendarError {
-  if (!error) return null;
-  if (status === 401 || error === "Unauthorized" || error === "No calendar access token") {
+function mapCalendarError(status: number, d: { error?: string; code?: string }): CalendarError {
+  if (d.code === "no_token" || d.code === "unconfigured" || d.code === "api_error") return d.code;
+  if (!d.error) return null;
+  if (status === 401 || d.error === "Unauthorized" || d.error === "No calendar access token") {
     return "no_token";
   }
-  if (error === "Google Calendar not configured") return "unconfigured";
+  if (d.error === "Google Calendar not configured") return "unconfigured";
   return "api_error";
 }
 
@@ -41,7 +42,7 @@ export default function CalendarWidget() {
       fetch("/api/calendar")
         .then(async (r) => {
           const d = await r.json().catch(() => ({ error: "Failed to fetch events" }));
-          const mapped = mapCalendarError(r.status, d.error);
+          const mapped = mapCalendarError(r.status, d);
           if (mapped) {
             setCalError(mapped);
             return;

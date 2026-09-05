@@ -43,9 +43,21 @@ async function getCalendarClient(userId: string, isAdmin: boolean) {
   return null;
 }
 
-function isReconnectError(err: unknown): boolean {
+type CalendarCode = "no_token" | "unconfigured" | "api_error";
+
+function fail(code: CalendarCode, error: string, status: number) {
+  return NextResponse.json({ error, code, events: [] }, { status });
+}
+
+function googleClientConfigured() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
+}
+
+function classifyGoogleError(err: unknown): CalendarCode {
   const message = err instanceof Error ? err.message : String(err);
-  return /invalid_grant|insufficient|scope|invalid.?credentials/i.test(message);
+  if (/invalid_client|unauthorized_client|client.?id|client.?secret/i.test(message)) return "unconfigured";
+  if (/invalid_grant|insufficient|scope|invalid.?credentials/i.test(message)) return "no_token";
+  return "api_error";
 }
 
 export async function GET() {
@@ -56,7 +68,11 @@ export async function GET() {
     const calendar = await getCalendarClient(auth.userId, auth.isAdmin);
 
     if (!calendar) {
-      return NextResponse.json({ error: "No calendar access token", events: [] }, { status: 200 });
+      return fail("no_token", "No calendar access token", 200);
+    }
+
+    if (!googleClientConfigured()) {
+      return fail("unconfigured", "Google Calendar not configured", 503);
     }
 
     const { timeMin, timeMax, timeZone } = getCalendarDayWindow();
@@ -81,10 +97,10 @@ export async function GET() {
 
     return NextResponse.json({ events });
   } catch (err) {
-    if (isReconnectError(err)) {
-      return NextResponse.json({ error: "No calendar access token", events: [] }, { status: 200 });
-    }
-    console.error("Calendar error:", err instanceof Error ? err.message : "google_error");
-    return NextResponse.json({ error: "Failed to fetch events", events: [] }, { status: 500 });
+    const code = classifyGoogleError(err);
+    console.error("Calendar error:", code);
+    if (code === "no_token") return fail("no_token", "No calendar access token", 200);
+    if (code === "unconfigured") return fail("unconfigured", "Google Calendar not configured", 503);
+    return fail("api_error", "Failed to fetch events", 500);
   }
 }
