@@ -3,79 +3,62 @@ import { getAuthorizedUser } from "@/lib/getUser";
 import { db } from "@/lib/db";
 import { google } from "googleapis";
 import { getCalendarDayWindow } from "@/lib/calendarDay";
-import {
-  classifyCalendarFailure,
-  googleClientConfigured,
-  hasCalendarScope,
-} from "@/lib/calendarErrors";
 
-type AccountRow = {
-  accessToken: string | null;
-  refreshToken: string | null;
-  scope: string | null;
-};
-
-type CalendarPayload = {
-  events: unknown[];
-  error?: string;
-  code?: string;
-  reason?: string;
-};
-
-function json(body: CalendarPayload, status = 200) {
-  return NextResponse.json(body, { status });
-}
-
-async function loadGoogleAccount(userId: string): Promise<AccountRow | null> {
-  const rows = await db.$queryRaw<AccountRow[]>`
+async function getCalendarClient(userId: string, isAdmin: boolean) {
+  const rows = await db.$queryRaw<{
+    accessToken: string | null;
+    refreshToken: string | null;
+    scope: string | null;
+  }[]>`
     SELECT "accessToken", "refreshToken", "scope"
     FROM neon_auth.account
     WHERE "userId"::text = ${userId}
       AND "providerId" = 'google'
     LIMIT 1
   `;
-  return rows[0] ?? null;
+
+  const account = rows[0];
+
+  if (account?.refreshToken) {
+    const client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    client.setCredentials({
+      refresh_token: account.refreshToken,
+      access_token: account.accessToken ?? undefined,
+    });
+    return google.calendar({ version: "v3", auth: client });
+  }
+
+  if (isAdmin && process.env.GOOGLE_CALENDAR_REFRESH_TOKEN) {
+    const client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    client.setCredentials({ refresh_token: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN });
+    return google.calendar({ version: "v3", auth: client });
+  }
+
+  return null;
 }
 
-function createCalendarClient(refreshToken: string | null, accessToken: string | null) {
-  const client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
-  client.setCredentials({
-    ...(refreshToken ? { refresh_token: refreshToken } : {}),
-    ...(accessToken ? { access_token: accessToken } : {}),
-  });
-  return google.calendar({ version: "v3", auth: client });
+function isReconnectError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /invalid_grant|insufficient|scope|invalid.?credentials/i.test(message);
 }
 
 export async function GET() {
   const auth = await getAuthorizedUser();
-  if (!auth.ok) {
-    return json({ error: "Unauthorized", events: [] }, auth.status);
-  }
+  if (!auth.ok) return NextResponse.json({ error: "Unauthorized", events: [] }, { status: auth.status });
 
   try {
-    const account = await loadGoogleAccount(auth.userId);
-    const refreshToken =
-      account?.refreshToken ??
-      (auth.isAdmin ? process.env.GOOGLE_CALENDAR_REFRESH_TOKEN ?? null : null);
-    const accessToken = account?.accessToken ?? null;
+    const calendar = await getCalendarClient(auth.userId, auth.isAdmin);
 
-    if (!refreshToken && !accessToken) {
-      return json({ error: "No calendar access token", code: "no_token", reason: "missing_refresh_token", events: [] });
+    if (!calendar) {
+      return NextResponse.json({ error: "No calendar access token", events: [] }, { status: 200 });
     }
 
-    // Scope persisted and not calendar → reconnect. Null scope still tries Google.
-    if (account?.scope && !hasCalendarScope(account.scope)) {
-      return json({ error: "No calendar access token", code: "no_token", reason: "insufficient_scope", events: [] });
-    }
-
-    if (!accessToken && !googleClientConfigured()) {
-      return json({ error: "Google Calendar not configured", code: "unconfigured", reason: "missing_client", events: [] }, 503);
-    }
-
-    const calendar = createCalendarClient(refreshToken, accessToken);
     const { timeMin, timeMax, timeZone } = getCalendarDayWindow();
 
     const res = await calendar.events.list({
@@ -96,13 +79,12 @@ export async function GET() {
       colorId: e.colorId,
     }));
 
-    return json({ events });
+    return NextResponse.json({ events });
   } catch (err) {
-    const classified = classifyCalendarFailure(err);
-    console.error("Calendar error:", classified.reason);
-    return json(
-      { error: classified.error, code: classified.code, reason: classified.reason, events: [] },
-      classified.status
-    );
+    if (isReconnectError(err)) {
+      return NextResponse.json({ error: "No calendar access token", events: [] }, { status: 200 });
+    }
+    console.error("Calendar error:", err instanceof Error ? err.message : "google_error");
+    return NextResponse.json({ error: "Failed to fetch events", events: [] }, { status: 500 });
   }
 }

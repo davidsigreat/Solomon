@@ -1,6 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/auth/client";
+import { googleCalendarSignIn } from "@/lib/auth/google";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -18,11 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/dashboard",
-        scopes: ["https://www.googleapis.com/auth/calendar"],
-      });
+      await authClient.signIn.social(googleCalendarSignIn);
     } catch {
       setError("Sign-in failed. Please try again.");
       setLoading(false);
