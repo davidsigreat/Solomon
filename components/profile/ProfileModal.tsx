@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth/client";
-import { useRouter } from "next/navigation";
 
 interface Props {
   isOpen: boolean;
@@ -17,7 +16,6 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   const [saved, setSaved] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   type ApiKey = { id: string; name: string; keyPrefix: string; revokedAt: string | null; lastUsedAt: string | null; createdAt: string };
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -106,7 +104,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-all text-lg">×</button>
         </div>
 
-        <form onSubmit={handleSave} className="px-6 py-6 flex flex-col gap-5">
+        <form id="profile-save" onSubmit={handleSave} className="px-6 py-6 flex flex-col gap-5">
           {/* Avatar preview */}
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl overflow-hidden border border-white/[0.08] flex-shrink-0">
@@ -203,36 +201,35 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-1">
+        </form>
+
+        {/* Sibling form — must not nest inside profile-save. That form's
+            preventDefault would swallow formAction and hide POST /api/logout. */}
+        <div className="flex items-center justify-between px-6 pb-6">
+          <form action="/api/logout" method="POST" onSubmit={() => setSigningOut(true)}>
             <button
-              type="button"
+              type="submit"
               disabled={signingOut}
-              onClick={async () => {
-                setSigningOut(true);
-                await authClient.signOut();
-                router.push("/login");
-              }}
               className="px-4 py-2 text-sm text-red-500 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/[0.06] rounded-xl transition-all disabled:opacity-40"
             >
               {signingOut ? "Signing out..." : "Sign out"}
             </button>
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose}
-                className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-200 border border-white/[0.07] rounded-xl hover:border-white/[0.15] transition-all">
-                Cancel
-              </button>
-              <button type="submit" disabled={saving}
-                className={`px-5 py-2 text-sm font-semibold rounded-xl border transition-all ${
-                  saved
-                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-                    : "text-cyan-400 bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20"
-                } disabled:opacity-40`}>
-                {saved ? "Saved ✓" : saving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+          </form>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-200 border border-white/[0.07] rounded-xl hover:border-white/[0.15] transition-all">
+              Cancel
+            </button>
+            <button type="submit" form="profile-save" disabled={saving}
+              className={`px-5 py-2 text-sm font-semibold rounded-xl border transition-all ${
+                saved
+                  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                  : "text-cyan-400 bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20"
+              } disabled:opacity-40`}>
+              {saved ? "Saved ✓" : saving ? "Saving..." : "Save Changes"}
+            </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
