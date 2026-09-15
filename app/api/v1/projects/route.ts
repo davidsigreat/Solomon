@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, requireApiEditor } from "@/lib/apiAuth";
 import { projectAccessWhere } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -16,9 +16,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
-  if (!auth.canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { name, color, description } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });

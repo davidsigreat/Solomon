@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { requireEditor } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;

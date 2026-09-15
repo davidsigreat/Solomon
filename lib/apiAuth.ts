@@ -16,3 +16,11 @@ export async function getApiAuth(req: Request): Promise<AuthResult> {
 
   return resolveAuth(record.email, record.userId);
 }
+
+/** Bearer auth + AppUser VIEWER (canEdit=false) → 403. Use on every mutating /api/v1 route. */
+export async function requireApiEditor(req: Request): Promise<AuthResult> {
+  const result = await getApiAuth(req);
+  if (!result.ok) return result;
+  if (!result.canEdit) return { ok: false, status: 403 };
+  return result;
+}

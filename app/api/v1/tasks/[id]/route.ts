@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, requireApiEditor } from "@/lib/apiAuth";
 import { getProjectRole, resolveTaskAccess } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 import { enrichOneTask } from "@/lib/enrichAssignees";
@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;
@@ -56,7 +56,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;

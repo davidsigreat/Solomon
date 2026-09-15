@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { getAuthorizedUser, requireEditor } from "@/lib/getUser";
 import { getProjectRole } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: Ctx) {
 }
 
 export async function POST(req: Request, { params }: Ctx) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   const { id } = await params;
 
@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   const { id } = await params;
 
@@ -76,7 +76,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   const { id } = await params;
 

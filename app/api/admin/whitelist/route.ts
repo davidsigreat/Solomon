@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin, invalidateAuthCache } from "@/lib/getUser";
+import { requireAdmin } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -31,7 +31,6 @@ export async function PATCH(req: Request) {
 
   const { email, role } = await req.json();
   const entry = await db.appUser.update({ where: { email }, data: { role } });
-  invalidateAuthCache(email);
   return NextResponse.json({ entry });
 }
 

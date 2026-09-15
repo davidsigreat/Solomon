@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { getAuthorizedUser, requireEditor } from "@/lib/getUser";
 import { getProjectRole, resolveTaskAccess } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 import { enrichOneTask } from "@/lib/enrichAssignees";
@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;
@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;

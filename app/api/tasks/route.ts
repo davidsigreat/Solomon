@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { getAuthorizedUser, requireEditor } from "@/lib/getUser";
 import { getProjectRole, projectAccessWhere } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 import { Priority, TaskStatus } from "@prisma/client";
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { title, description, projectId, priority, dueDate, startDate, status } = await req.json();

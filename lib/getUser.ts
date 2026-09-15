@@ -11,30 +11,19 @@ export type AuthResult =
 
 const getSession = cache(() => auth.getSession());
 
-// Module-level auth cache — eliminates the appUser DB lookup on every API request.
-// TTL: 60s. Stale after role change but acceptable for non-security-critical UX.
-const AUTH_CACHE = new Map<string, { role: UserRole; exp: number }>();
-const CACHE_TTL  = 60_000;
-
 // Shared by cookie-session auth and API-key auth — resolves role for an
-// already-verified identity (email/userId pair). Returns null if the email
-// has no AppUser record (not whitelisted).
+// already-verified identity (email/userId pair). Returns 403 if the email
+// has no AppUser record (not whitelisted). Looked up per request so a
+// demote/removal in the whitelist takes effect on the next call.
 export async function resolveAuth(email: string, userId: string): Promise<AuthResult> {
   if (email === process.env.AUTHORIZED_EMAIL) {
     return { ok: true, userId, email, role: "ADMIN", isAdmin: true, canEdit: true };
-  }
-
-  const cached = AUTH_CACHE.get(email);
-  if (cached && cached.exp > Date.now()) {
-    const role = cached.role;
-    return { ok: true, userId, email, role, isAdmin: role === "ADMIN", canEdit: role !== "VIEWER" };
   }
 
   const appUser = await db.appUser.findUnique({ where: { email } });
   if (!appUser) return { ok: false, status: 403 };
 
   const role = appUser.role as UserRole;
-  AUTH_CACHE.set(email, { role, exp: Date.now() + CACHE_TTL });
   return { ok: true, userId, email, role, isAdmin: role === "ADMIN", canEdit: role !== "VIEWER" };
 }
 
@@ -47,11 +36,6 @@ export async function getAuthorizedUser(): Promise<AuthResult> {
   return resolveAuth(user.email, user.id);
 }
 
-// Invalidate cache when admin changes a user's role
-export function invalidateAuthCache(email: string) {
-  AUTH_CACHE.delete(email);
-}
-
 export async function requireAdmin(): Promise<AuthResult> {
   const result = await getAuthorizedUser();
   if (!result.ok) return result;
@@ -59,6 +43,7 @@ export async function requireAdmin(): Promise<AuthResult> {
   return result;
 }
 
+/** Session auth + AppUser VIEWER (canEdit=false) → 403. Use on every mutating cookie route. */
 export async function requireEditor(): Promise<AuthResult> {
   const result = await getAuthorizedUser();
   if (!result.ok) return result;
