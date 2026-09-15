@@ -7,11 +7,6 @@ import { useRouter } from "next/navigation";
 type UserRole = "VIEWER" | "MEMBER" | "ADMIN";
 interface AppUser { id: string; email: string; role: UserRole; note: string | null; createdAt: string; }
 interface NeonUser { id: string; name: string | null; email: string | null; image: string | null; }
-interface SprintSession {
-  id: string; duration: number; taskName: string | null;
-  projectName: string | null; projectColor: string | null;
-  createdAt: string; userId: string;
-}
 
 const ROLE_META: Record<UserRole, { label: string; color: string; desc: string }> = {
   VIEWER: { label: "Viewer",  color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20", desc: "Read-only access" },
@@ -32,18 +27,13 @@ export default function AdminPage() {
 
   const [appUsers, setAppUsers]   = useState<AppUser[]>([]);
   const [neonUsers, setNeonUsers] = useState<NeonUser[]>([]);
-  const [tab, setTab]             = useState<"users" | "registered" | "sprints">("users");
+  const [tab, setTab]             = useState<"users" | "registered">("users");
   const [isAdmin, setIsAdmin]     = useState<boolean | null>(null);
   const [newEmail, setNewEmail]   = useState("");
   const [newRole, setNewRole]     = useState<UserRole>("MEMBER");
   const [newNote, setNewNote]     = useState("");
   const [adding, setAdding]       = useState(false);
   const [addError, setAddError]   = useState("");
-  const [sprints, setSprints]     = useState<SprintSession[]>([]);
-  const [sprintPeriod, setSprintPeriod] = useState<"7d" | "30d">("7d");
-  const [sprintsLoading, setSprintsLoading] = useState(false);
-  const [selected, setSelected]   = useState<Set<string>>(new Set());
-  const [deleting, setDeleting]   = useState(false);
 
   useEffect(() => { if (!isPending && !session) router.push("/login"); }, [session, isPending, router]);
 
@@ -60,34 +50,6 @@ export default function AdminPage() {
     fetch("/api/admin/whitelist").then(r => r.json()).then(d => setAppUsers(d.entries ?? []));
     fetch("/api/admin/users").then(r => r.json()).then(d => setNeonUsers(d.users ?? []));
   }, [isAdmin]);
-
-  useEffect(() => {
-    if (!isAdmin || tab !== "sprints") return;
-    setSprintsLoading(true);
-    setSelected(new Set());
-    fetch(`/api/analytics?scope=org&period=${sprintPeriod}`)
-      .then(r => r.ok ? r.json() : { sprintSessions: [] })
-      .then(d => setSprints(d.sprintSessions ?? []))
-      .catch(() => setSprints([]))
-      .finally(() => setSprintsLoading(false));
-  }, [isAdmin, tab, sprintPeriod]);
-
-  async function deleteSprints() {
-    if (selected.size === 0) return;
-    setDeleting(true);
-    const ids = Array.from(selected);
-    await fetch("/api/sprints", {
-      method: "DELETE", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    setSprints(prev => prev.filter(s => !selected.has(s.id)));
-    setSelected(new Set());
-    setDeleting(false);
-  }
-
-  function toggleRow(id: string) {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
 
   async function addUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -171,7 +133,6 @@ export default function AdminPage() {
           {([
             ["users", `Users (${appUsers.length})`],
             ["registered", `Registered (${neonUsers.length})`],
-            ["sprints", "Sprint Sessions"],
           ] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
@@ -297,87 +258,6 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
-          </div>
-        )}
-        {tab === "sprints" && (
-          <div className="flex flex-col gap-4">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.05]">
-                {(["7d", "30d"] as const).map(p => (
-                  <button key={p} onClick={() => setSprintPeriod(p)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      sprintPeriod === p ? "bg-white/[0.08] text-zinc-100" : "text-zinc-600 hover:text-zinc-300"
-                    }`}>{p === "7d" ? "7 days" : "30 days"}</button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                {selected.size > 0 && (
-                  <>
-                    <span className="text-xs text-zinc-500">{selected.size} selected</span>
-                    <button onClick={deleteSprints} disabled={deleting}
-                      className="px-3 py-1.5 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all disabled:opacity-40">
-                      {deleting ? "Deleting…" : "Delete selected"}
-                    </button>
-                  </>
-                )}
-                {sprints.length > 0 && (
-                  <button onClick={() => setSelected(selected.size === sprints.length ? new Set() : new Set(sprints.map(s => s.id)))}
-                    className="text-xs text-zinc-600 hover:text-zinc-300 transition-colors">
-                    {selected.size === sprints.length ? "Deselect all" : "Select all"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
-              {sprintsLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="w-5 h-5 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
-                </div>
-              ) : sprints.length === 0 ? (
-                <p className="text-sm text-zinc-700 text-center py-12">No sprint sessions in this period</p>
-              ) : (
-                <div className="divide-y divide-white/[0.03]">
-                  {sprints.map(s => {
-                    const isSelected = selected.has(s.id);
-                    const d = new Date(s.createdAt);
-                    const dateStr = d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
-                    const timeStr = d.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", hour12: false });
-                    const h = Math.floor(s.duration / 60);
-                    const m = s.duration % 60;
-                    return (
-                      <div key={s.id} onClick={() => toggleRow(s.id)}
-                        className={`flex items-center gap-4 cursor-pointer transition-all ${
-                          isSelected ? "bg-red-500/[0.05] border-l-2 border-red-500/40" : "hover:bg-white/[0.02] border-l-2 border-transparent"
-                        }`} style={{ padding: '0.75rem 1.25rem' }}>
-                        {/* Custom selection indicator */}
-                        <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border transition-all ${
-                          isSelected ? "bg-red-500/20 border-red-500/50" : "border-white/[0.12]"
-                        }`}>
-                          {isSelected && (
-                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                              <path d="M1.5 4L3 5.5L6.5 2" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 w-36">
-                          {s.projectColor && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.projectColor }} />}
-                          <span className="text-xs text-zinc-500 tabular-nums">{dateStr}</span>
-                        </div>
-                        <span className="text-[10px] text-zinc-700 tabular-nums w-12 flex-shrink-0">{timeStr}</span>
-                        <span className="text-sm text-zinc-300 flex-1 truncate">{s.taskName ?? s.projectName ?? <span className="text-zinc-700">—</span>}</span>
-                        {s.projectName && <span className="text-[10px] text-zinc-600 truncate max-w-[100px]">{s.projectName}</span>}
-                        <span className="text-xs font-semibold text-cyan-400 tabular-nums flex-shrink-0 w-12 text-right">
-                          {h > 0 ? `${h}h ${m}m` : `${m}m`}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         )}
 

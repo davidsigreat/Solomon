@@ -7,7 +7,6 @@ export interface TaskAssignee {
 }
 export type Priority  = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
-export type SprintMode = "FOCUS" | "SHORT_BREAK" | "LONG_BREAK";
 
 export interface Task {
   id: string; title: string; description?: string | null;
@@ -24,13 +23,3 @@ export interface Project {
   id: string; name: string; color: string; description?: string | null;
   tasks?: Task[]; createdAt: string;
 }
-
-export type TimerMode = "IDLE" | SprintMode;
-export interface TimerState {
-  mode: TimerMode; secondsLeft: number; sprintsCompleted: number;
-  activeTask: string; activeProjectId: string; isRunning: boolean;
-}
-export type TimerAction =
-  | { type: "START" } | { type: "PAUSE" } | { type: "RESET" } | { type: "TICK" }
-  | { type: "CYCLE_COMPLETE" } | { type: "SET_TASK"; task: string }
-  | { type: "SET_PROJECT"; projectId: string } | { type: "SET_MODE"; mode: TimerMode; seconds: number };

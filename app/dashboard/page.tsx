@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
-import ChronoMatrix from "@/components/sprint/ChronoMatrix";
 import KanbanBoard from "@/components/KanbanBoard";
 import dynamic from "next/dynamic";
 const ProfileModal = dynamic(() => import("@/components/profile/ProfileModal"), { ssr: false });
@@ -52,21 +51,16 @@ export default function DashboardPage() {
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileRightOpen, setMobileRightOpen] = useState(false);
 
   // Persist sidebar state
   useEffect(() => {
     const l = localStorage.getItem("sidebar-left");
-    const r = localStorage.getItem("sidebar-right");
     if (l !== null) setLeftOpen(l !== "false");
-    if (r !== null) setRightOpen(r !== "false");
   }, []);
 
   const toggleLeft = useCallback(() => setLeftOpen(v => { localStorage.setItem("sidebar-left", String(!v)); return !v; }), []);
-  const toggleRight = useCallback(() => setRightOpen(v => { localStorage.setItem("sidebar-right", String(!v)); return !v; }), []);
 
   // Redirect if session definitively absent (not just loading)
   useEffect(() => {
@@ -137,20 +131,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Mobile right panel overlay */}
-      {mobileRightOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileRightOpen(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div onClick={e => e.stopPropagation()} className="absolute right-0 top-0 h-full w-[300px] bg-[#09090b] border-l border-white/[0.06] flex flex-col overflow-y-auto" style={{ gap: '1rem', padding: '1.25rem' }}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">Widgets</span>
-              <button onClick={() => setMobileRightOpen(false)} className="w-6 h-6 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.06] transition-all text-base">×</button>
-            </div>
-            <ChronoMatrix projects={projects} />
-          </div>
-        </div>
-      )}
-
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
@@ -196,20 +176,6 @@ export default function DashboardPage() {
 
           <NotificationBell onSelectProject={setActiveProject} />
 
-          {/* Mobile widgets button */}
-          <button
-            onClick={() => setMobileRightOpen(true)}
-            title="Widgets"
-            className="md:hidden w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-xl transition-all flex-shrink-0"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-              <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-              <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-              <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-            </svg>
-          </button>
-
           {/* Profile button */}
           <button
             onClick={() => setProfileOpen(true)}
@@ -223,10 +189,6 @@ export default function DashboardPage() {
                 </div>
             }
           </button>
-
-          <div className="hidden md:flex">
-            <CollapseButton collapsed={!rightOpen} onClick={toggleRight} side="right" />
-          </div>
         </header>
 
         {/* Content */}
@@ -240,13 +202,6 @@ export default function DashboardPage() {
               projectsLoading={projectsLoading}
             />
           </div>
-
-          {/* Right panel - hidden on mobile */}
-          {rightOpen && (
-            <aside className="hidden md:flex w-[300px] flex-shrink-0 flex-col overflow-y-auto border-l border-white/[0.05]" style={{ gap: '1rem', padding: '1.25rem' }}>
-              <ChronoMatrix projects={projects} />
-            </aside>
-          )}
         </div>
       </div>
 
