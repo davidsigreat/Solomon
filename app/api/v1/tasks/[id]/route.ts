@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiAuth, requireApiEditor, apiAuthError, apiError, toJsonResponse } from "@/lib/apiAuth";
-import { getProjectRole, requireProjectMutate, resolveTaskAccess } from "@/lib/projectAccess";
+import { requireProjectMutate, resolveTaskAccess } from "@/lib/projectAccess";
 import { TASK_INCLUDE, upsertPublicTask } from "@/lib/solomonPublic";
 import { db } from "@/lib/db";
 import { enrichOneTask } from "@/lib/enrichAssignees";

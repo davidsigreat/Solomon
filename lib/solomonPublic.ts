@@ -1,5 +1,5 @@
 import "server-only";
-import { Priority, SprintMode, TaskStatus } from "@prisma/client";
+import { Priority, TaskStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { AuthedUser, PublicResult } from "@/lib/apiAuth";
 import { enrichAssignees, enrichOneTask } from "@/lib/enrichAssignees";
@@ -48,14 +48,6 @@ export type UpsertTaskInput = {
   status?: string;
   startDate?: string | null;
   dueDate?: string | null;
-};
-
-export type LogSprintInput = {
-  taskName?: string;
-  projectId?: string | null;
-  duration?: number;
-  mode?: string;
-  completed?: boolean;
 };
 
 function emptyTaskCounts(): TaskCounts {
@@ -239,29 +231,4 @@ export async function upsertPublicTask(
     include: TASK_INCLUDE,
   });
   return { ok: true, status: 201, data: { task: await enrichOneTask(task) } };
-}
-
-export async function logPublicSprint(
-  auth: AuthedUser,
-  input: LogSprintInput,
-): Promise<PublicResult<{ sprint: unknown }>> {
-  if (!auth.canEdit) return { ok: false, status: 403, error: "Forbidden" };
-  if (!input.duration) return { ok: false, status: 400, error: "duration is required" };
-
-  if (input.projectId) {
-    const access = await requireProjectMutate(input.projectId, auth);
-    if (!access.ok) return access;
-  }
-
-  const sprint = await db.sprintSession.create({
-    data: {
-      taskName: input.taskName || null,
-      projectId: input.projectId || null,
-      duration: input.duration,
-      mode: (input.mode ?? "FOCUS") as SprintMode,
-      completed: input.completed ?? true,
-      userId: auth.userId,
-    },
-  });
-  return { ok: true, status: 201, data: { sprint } };
 }

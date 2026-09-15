@@ -6,13 +6,11 @@ import {
   getPortfolioStatus,
   listAccessibleProjects,
   listPublicTasks,
-  logPublicSprint,
   upsertPublicTask,
 } from "@/lib/solomonPublic";
 
 const TASK_STATUS = z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]);
 const TASK_PRIORITY = z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
-const SPRINT_MODE = z.enum(["FOCUS", "SHORT_BREAK", "LONG_BREAK"]);
 
 function jsonContent(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -135,26 +133,6 @@ const inner = createMcpHandler(
         const user = await userFromCtx(ctx);
         if (!user) return errorContent("Unauthorized", 401);
         return fromPublic(await upsertPublicTask(user, input));
-      },
-    );
-
-    server.registerTool(
-      "log_sprint",
-      {
-        title: "Log a sprint",
-        description: "Log a completed focus/break sprint session. VIEWER cannot mutate.",
-        inputSchema: z.object({
-          duration: z.number().int().positive().describe("Duration in minutes"),
-          taskName: z.string().optional(),
-          projectId: z.string().optional(),
-          mode: SPRINT_MODE.optional(),
-          completed: z.boolean().optional(),
-        }),
-      },
-      async (input, ctx) => {
-        const user = await userFromCtx(ctx);
-        if (!user) return errorContent("Unauthorized", 401);
-        return fromPublic(await logPublicSprint(user, input));
       },
     );
   },

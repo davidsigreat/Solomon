@@ -59,8 +59,6 @@ Same Bearer auth.
 | DELETE | `/api/v1/tasks/:id/assignees/:userId` |
 | GET, POST | `/api/v1/tasks/:id/subtasks` |
 | PATCH, DELETE | `/api/v1/tasks/:id/subtasks/:subtaskId` |
-| GET, POST | `/api/v1/sprints` |
-| GET, DELETE | `/api/v1/sprints/:id` |
 
 Analytics remains session-cookie only (`/api/analytics`).
 
@@ -93,7 +91,6 @@ Cursor / Claude example:
 | `portfolio_status` | Read — same payload as `GET /api/v1/status` (optional `projectId`) |
 | `list_tasks` | Read — optional `projectId`, `status` |
 | `upsert_task` | Write — create (`title` + `projectId`) or update by `id` |
-| `log_sprint` | Write — log a focus/break session (`duration` minutes) |
 
 Helpers are shared with `/api/v1` — auth is `getApiAuth` / `authenticateApiKey` + `resolveAuth`, not a second stack.
 
