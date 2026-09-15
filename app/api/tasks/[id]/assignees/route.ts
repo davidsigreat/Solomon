@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { requireEditor } from "@/lib/getUser";
 import { resolveTaskAccess } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -14,7 +14,7 @@ async function requireTaskEditor(id: string, auth: { userId: string; isAdmin: bo
 }
 
 export async function POST(req: Request, { params }: Ctx) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   const { id } = await params;
 
@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   const { id } = await params;
 

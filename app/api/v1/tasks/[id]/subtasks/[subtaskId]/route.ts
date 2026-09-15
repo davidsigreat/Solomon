@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { requireApiEditor } from "@/lib/apiAuth";
 import { getProjectRole } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -12,7 +12,7 @@ async function resolveTaskAccess(id: string, auth: { userId: string; isAdmin: bo
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id, subtaskId } = await params;
@@ -33,7 +33,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id, subtaskId } = await params;

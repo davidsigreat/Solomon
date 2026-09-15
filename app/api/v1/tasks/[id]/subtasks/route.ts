@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, requireApiEditor } from "@/lib/apiAuth";
 import { getProjectRole } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 
@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: Ctx) {
 }
 
 export async function POST(req: Request, { params }: Ctx) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;

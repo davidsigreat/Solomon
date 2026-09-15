@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuth } from "@/lib/apiAuth";
+import { getApiAuth, requireApiEditor } from "@/lib/apiAuth";
 import { db } from "@/lib/db";
 import { SprintMode } from "@prisma/client";
 
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await getApiAuth(req);
+  const auth = await requireApiEditor(req);
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { taskName, projectId, duration, mode, completed } = await req.json();

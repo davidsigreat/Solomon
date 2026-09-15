@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { getAuthorizedUser, requireEditor } from "@/lib/getUser";
 import { generateApiKey } from "@/lib/apiKey";
 import { db } from "@/lib/db";
 
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { name } = await req.json();

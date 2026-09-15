@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/lib/getUser";
+import { getAuthorizedUser, requireEditor } from "@/lib/getUser";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { taskName, projectId, duration, mode } = await req.json();
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const auth = await getAuthorizedUser();
+  const auth = await requireEditor();
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
   if (!auth.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

@@ -6,8 +6,19 @@ export type ProjectRole = "OWNER" | "EDITOR" | "VIEWER";
  * Returns the effective role of `auth` on `projectId`, or null if no access.
  * Admin always gets OWNER-level access.
  * Project creator (project.userId) is always OWNER.
+ * A global AppUser VIEWER (canEdit=false) is capped at project VIEWER —
+ * they keep read access to their projects but can never mutate.
  */
 export async function getProjectRole(
+  projectId: string,
+  auth: { userId: string; isAdmin: boolean; canEdit?: boolean }
+): Promise<ProjectRole | null> {
+  const role = await lookupProjectRole(projectId, auth);
+  if (role && auth.canEdit === false) return "VIEWER";
+  return role;
+}
+
+async function lookupProjectRole(
   projectId: string,
   auth: { userId: string; isAdmin: boolean }
 ): Promise<ProjectRole | null> {
