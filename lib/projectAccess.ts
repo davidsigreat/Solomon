@@ -38,3 +38,13 @@ export function projectAccessWhere(auth: { userId: string; isAdmin: boolean }) {
     ],
   };
 }
+
+/** Task's project + caller's role on it. `task` is null when the task doesn't exist. */
+export async function resolveTaskAccess(
+  taskId: string,
+  auth: { userId: string; isAdmin: boolean }
+): Promise<{ task: { projectId: string } | null; role: ProjectRole | null }> {
+  const task = await db.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (!task) return { task: null, role: null };
+  return { task, role: await getProjectRole(task.projectId, auth) };
+}

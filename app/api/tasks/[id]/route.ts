@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthorizedUser } from "@/lib/getUser";
-import { getProjectRole } from "@/lib/projectAccess";
+import { getProjectRole, resolveTaskAccess } from "@/lib/projectAccess";
 import { db } from "@/lib/db";
 import { enrichOneTask } from "@/lib/enrichAssignees";
 
@@ -9,13 +9,6 @@ const TASK_INCLUDE = {
   subtasks: { orderBy: { createdAt: "asc" as const } },
   assignees: true,
 };
-
-async function resolveTaskAccess(id: string, auth: { userId: string; isAdmin: boolean }) {
-  const task = await db.task.findUnique({ where: { id }, select: { projectId: true } });
-  if (!task) return { task: null, role: null };
-  const role = await getProjectRole(task.projectId, auth);
-  return { task, role };
-}
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthorizedUser();
@@ -35,11 +28,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!auth.ok) return NextResponse.json({ error: "Unauthorized" }, { status: auth.status });
 
   const { id } = await params;
-  const { role } = await resolveTaskAccess(id, auth);
-  if (!role) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { task: current, role } = await resolveTaskAccess(id, auth);
+  if (!role || !current) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
+  // Moving to another project requires edit rights on the target too.
+  if (body.projectId && body.projectId !== current.projectId) {
+    const targetRole = await getProjectRole(body.projectId, auth);
+    if (!targetRole) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (targetRole === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const task = await db.task.update({
     where: { id },
     data: {
