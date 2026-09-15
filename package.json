@@ -27,7 +27,6 @@
     "@tailwindcss/postcss": "^4.3.0",
     "ai": "^6.0.184",
     "autoprefixer": "^10.5.0",
-    "googleapis": "^171.4.0",
     "next": "^16.2.6",
     "postcss": "^8.5.14",
     "prisma": "^6.19.3",
