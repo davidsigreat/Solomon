@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface Notification {
   id: string;
@@ -19,6 +20,8 @@ const TYPE_META = {
 };
 
 const DISMISSED_KEY = "solomon-dismissed-notifs";
+const PANEL_WIDTH = 320; // px — matches w-80
+const VIEWPORT_MARGIN = 8; // px — keep clear of the screen edge on narrow viewports
 
 function getDismissed(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]")); }
@@ -37,7 +40,10 @@ export default function NotificationBell({ onSelectProject }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -60,11 +66,35 @@ export default function NotificationBell({ onSelectProject }: Props) {
     return () => { clearInterval(id); window.removeEventListener("storage", onStorage); };
   }, [load]);
 
-  // Close on outside click
+  // Position the portaled panel against the bell button — recomputed whenever
+  // it opens and on resize, so it tracks the trigger instead of being clipped
+  // by an overflow-hidden ancestor (the dashboard shell is overflow-hidden
+  // top to bottom for its own scroll regions).
+  const updatePosition = useCallback(() => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const maxRight = Math.max(window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN, VIEWPORT_MARGIN);
+    const right = Math.min(Math.max(window.innerWidth - r.right, VIEWPORT_MARGIN), maxRight);
+    setPos({ top: r.bottom + 8, right });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    return () => window.removeEventListener("resize", updatePosition);
+  }, [open, updatePosition]);
+
+  // Close on outside click — the panel is portaled to <body>, so it's no
+  // longer a DOM descendant of the trigger; check both refs.
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -90,8 +120,9 @@ export default function NotificationBell({ onSelectProject }: Props) {
   }
 
   return (
-    <div ref={ref} className="relative flex-shrink-0">
+    <div ref={wrapRef} className="relative flex-shrink-0">
       <button
+        ref={btnRef}
         onClick={() => setOpen(v => !v)}
         title="Notifications"
         aria-label={urgent.length > 0 ? `Notifications (${urgent.length} urgent)` : "Notifications"}
@@ -112,8 +143,12 @@ export default function NotificationBell({ onSelectProject }: Props) {
         )}
       </button>
 
-      {open && (
-        <div className="pop-in absolute right-0 top-11 w-80 bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 z-50 overflow-hidden">
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
+          className="pop-in w-80 max-w-[calc(100vw-1rem)] bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <span className="flex items-baseline gap-1.5">
               <span className="text-xs font-semibold text-zinc-200">Notifications</span>
@@ -168,7 +203,8 @@ export default function NotificationBell({ onSelectProject }: Props) {
               View all notifications →
             </a>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
