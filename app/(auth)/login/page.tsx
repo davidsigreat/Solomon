@@ -36,23 +36,23 @@ export default function LoginPage() {
         backgroundSize: "32px 32px",
       }} />
 
-      <div className="relative z-10 flex flex-col items-center gap-10">
+      <div className="fade-up relative z-10 flex flex-col items-center gap-8 px-5 py-10 w-full max-w-sm">
         {/* Identity */}
         <div className="text-center">
-          <p className="text-[10px] font-mono tracking-[0.4em] text-zinc-700 uppercase mb-3">
+          <p className="text-[10px] font-mono tracking-[0.4em] text-zinc-700 uppercase mb-4">
             Initializing
           </p>
-          <div className="flex items-center gap-3 justify-center mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-violet-500/30 border border-white/10 flex items-center justify-center">
+          <div className="flex items-center gap-3 justify-center mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-violet-500/30 border border-white/10 flex items-center justify-center shadow-[0_0_24px_rgba(6,182,212,0.15)]">
               <span className="text-lg font-black text-cyan-300 font-mono">S</span>
             </div>
-            <h1 className="text-5xl font-bold tracking-widest text-white font-mono">SOLOMON</h1>
+            <h1 className="text-[2.75rem] sm:text-5xl font-bold tracking-[0.15em] text-white font-mono leading-none">SOLOMON</h1>
           </div>
-          <p className="text-sm text-zinc-600 tracking-widest">Your personal counsel.</p>
+          <p className="text-[13px] text-zinc-600 tracking-[0.12em]">Your personal counsel.</p>
         </div>
 
         {/* Boot lines */}
-        <div className="flex flex-col gap-1.5 text-[11px] font-mono w-64">
+        <div className="flex flex-col gap-2 text-[11px] font-mono w-full max-w-[17rem]">
           {[
             { label: "SYSTEM BOOT",        status: "OK",       c: "text-emerald-400" },
             { label: "DATABASE SYNC",       status: "OK",       c: "text-emerald-400" },
@@ -67,10 +67,10 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-[#0d1424] border border-white/[0.08] rounded-2xl p-8 w-80 flex flex-col items-center gap-5">
+        <div className="bg-[#0d1424] border border-white/[0.08] rounded-2xl p-7 w-full flex flex-col items-center gap-5 shadow-2xl shadow-black/40">
           <div className="text-center">
-            <p className="text-sm font-semibold text-zinc-200">System Access</p>
-            <p className="text-xs text-zinc-600 mt-1">
+            <p className="text-sm font-semibold text-zinc-100">System Access</p>
+            <p className="text-xs text-zinc-600 mt-1.5 leading-relaxed">
               Sign in to access your dashboard
             </p>
           </div>
@@ -84,12 +84,12 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl border border-white/[0.1] bg-white/[0.03] hover:bg-white/[0.07] hover:border-cyan-500/30 text-sm font-medium text-zinc-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl border border-white/[0.1] bg-white/[0.03] hover:bg-white/[0.07] hover:border-cyan-500/40 text-sm font-medium text-zinc-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
                 <div className="w-4 h-4 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
-                <span className="text-zinc-500">Connecting...</span>
+                <span className="text-zinc-500">Connecting…</span>
               </>
             ) : (
               <>
@@ -99,13 +99,13 @@ export default function LoginPage() {
             )}
           </button>
 
-          <p className="text-[10px] text-zinc-700 text-center leading-relaxed">
+          <p className="text-[10px] text-zinc-600 text-center leading-relaxed">
             Access is restricted to authorized accounts.<br />
             Contact the admin to request access.
           </p>
         </div>
 
-        <p className="text-[10px] font-mono text-zinc-800 tracking-widest">
+        <p className="text-[10px] font-mono text-zinc-700 tracking-[0.2em]">
           SOLOMON v2.0 · NEON AUTH
         </p>
       </div>

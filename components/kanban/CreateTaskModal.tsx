@@ -136,17 +136,19 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
     <div
       ref={overlayRef}
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm md:p-4"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/55 backdrop-blur-sm md:p-4"
     >
-      <div className="w-full md:max-w-2xl bg-black/70 backdrop-blur-xl border border-white/[0.1] md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-label="New task"
+        className="w-full md:max-w-2xl bg-black/70 backdrop-blur-xl border border-white/[0.1] md:rounded-2xl rounded-t-2xl shadow-2xl shadow-black/60 flex flex-col max-h-[92vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.06]" style={{ padding: '1.25rem 1.75rem' }}>
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 sm:px-7 py-4">
           <h2 className="text-sm font-semibold text-zinc-100">New Task</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-all text-lg">×</button>
+          <button onClick={onClose} aria-label="Close"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.07] transition-colors text-lg">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="flex flex-col" style={{ padding: '1.5rem 1.75rem', gap: '1.5rem' }}>
+          <div className="flex flex-col gap-6 px-5 sm:px-7 py-6">
             {/* Title */}
             <div>
               <input
@@ -162,7 +164,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
 
             {/* Description */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Description</label>
+              <label className="label-caps block mb-1.5">Description</label>
               <textarea
                 placeholder="What needs to be done?"
                 value={form.description}
@@ -175,7 +177,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
             {/* Grid: Priority + Status + Project */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Priority</label>
+                <label className="label-caps block mb-1.5">Priority</label>
                 <div className="flex flex-col gap-1">
                   {PRIORITIES.map(p => (
                     <button key={p} type="button"
@@ -195,7 +197,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Status</label>
+                <label className="label-caps block mb-1.5">Status</label>
                 <div className="flex flex-col gap-1">
                   {STATUSES.map(s => (
                     <button key={s} type="button"
@@ -215,7 +217,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Project</label>
+                <label className="label-caps block mb-1.5">Project</label>
                 <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
                   {projects.map(p => (
                     <button key={p.id} type="button"
@@ -236,12 +238,12 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Start Date</label>
+                <label className="label-caps block mb-1.5">Start Date</label>
                 <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                   className="w-full bg-[#111116] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-zinc-300 outline-none transition-colors" />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Due Date</label>
+                <label className="label-caps block mb-1.5">Due Date</label>
                 <input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))}
                   className="w-full bg-[#111116] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3 py-2.5 text-sm text-zinc-300 outline-none transition-colors" />
               </div>
@@ -250,7 +252,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
             {/* Subtasks */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Subtasks</label>
+                <label className="label-caps">Subtasks</label>
                 <button type="button" onClick={addSubtaskField}
                   className="text-[10px] text-cyan-500 hover:text-cyan-300 transition-colors">+ Add</button>
               </div>
@@ -273,7 +275,7 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
             {/* Contributors — from project's contributor list */}
             {users.length > 0 && (
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Contributors</label>
+                <label className="label-caps block mb-2">Contributors</label>
                 <div className="flex flex-wrap gap-2">
                   {users.map(u => {
                     const selected = contributors.includes(u.id);
@@ -296,14 +298,14 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projects, 
           </div>
 
           {/* Footer */}
-          <div className="border-t border-white/[0.06] flex justify-end gap-3" style={{ padding: '1.25rem 1.75rem' }}>
+          <div className="border-t border-white/[0.06] flex justify-end gap-2.5 px-5 sm:px-7 py-4">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-200 border border-white/[0.07] rounded-xl hover:border-white/[0.15] transition-all">
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100 border border-white/[0.07] rounded-xl hover:border-white/[0.15] hover:bg-white/[0.04] transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={submitting || !form.title.trim()}
-              className="px-5 py-2 text-sm font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 rounded-xl hover:bg-cyan-500/20 transition-all disabled:opacity-40">
-              {submitting ? "Creating..." : "Create Task"}
+              className="px-5 py-2 text-sm font-semibold text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 rounded-xl hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors disabled:opacity-40 disabled:hover:bg-cyan-500/10">
+              {submitting ? "Creating…" : "Create Task"}
             </button>
           </div>
         </form>

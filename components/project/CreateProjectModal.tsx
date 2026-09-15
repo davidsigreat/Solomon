@@ -101,23 +101,20 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Props
 
   return (
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      style={{ padding: '1rem' }}>
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-sm p-0 sm:p-4">
 
-      <form onSubmit={handleSubmit}
-        className="w-full max-w-lg bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ maxHeight: '90vh' }}>
+      <form onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-label="New project"
+        className="w-full max-w-lg bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-t-2xl sm:rounded-2xl shadow-2xl shadow-black/60 flex flex-col overflow-hidden max-h-[92vh] sm:max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.07] flex-shrink-0"
-          style={{ padding: '1rem 1.75rem' }}>
+        <div className="flex items-center justify-between border-b border-white/[0.07] flex-shrink-0 px-5 sm:px-7 py-4">
           <h2 className="text-sm font-semibold text-zinc-100">New Project</h2>
-          <button type="button" onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-all text-lg leading-none">×</button>
+          <button type="button" onClick={onClose} aria-label="Close"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.07] transition-colors text-lg leading-none">×</button>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto flex flex-col" style={{ padding: '1.5rem 1.75rem', gap: '1.25rem' }}>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-5 px-5 sm:px-7 py-6">
 
           {/* Name */}
           <div>
@@ -129,7 +126,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Props
 
           {/* Description */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Description</label>
+            <label className="label-caps block mb-1.5">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               placeholder="What is this project about?" rows={3}
               className="w-full bg-white/[0.04] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3.5 py-3 text-sm text-zinc-300 placeholder-zinc-700 outline-none resize-none transition-colors" />
@@ -137,7 +134,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Props
 
           {/* Color */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Color</label>
+            <label className="label-caps block mb-2">Color</label>
             <div className="flex gap-2.5 flex-wrap">
               {PRESET_COLORS.map(c => (
                 <button key={c} type="button" onClick={() => setColor(c)}
@@ -154,7 +151,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreated }: Props
 
           {/* Contributors */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Contributors</label>
+            <label className="label-caps block mb-2">Contributors</label>
             {users.length > 0 ? (
               <div className="flex flex-wrap gap-2 mb-3">
                 {users.map(u => {

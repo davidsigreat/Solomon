@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { Task, Project } from "@/types";
+import EmptyState from "@/components/ui/EmptyState";
 
 const TaskModal = dynamic(() => import("@/components/kanban/TaskModal"), { ssr: false });
 const CreateTaskModal = dynamic(() => import("@/components/kanban/CreateTaskModal"), { ssr: false });
@@ -104,12 +105,14 @@ const TaskCard = memo(function TaskCard({ task, onMove, onOpen, isDragging, onDr
 
       {task.subtasks.length > 0 && (
         <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-zinc-700">Subtasks</span>
-            <span className="text-[10px] text-zinc-600">{completedSubs}/{task.subtasks.length}</span>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-zinc-600">Subtasks</span>
+            <span className={`text-[10px] tabular-nums ${completedSubs === task.subtasks.length ? "text-emerald-400/80" : "text-zinc-500"}`}>
+              {completedSubs}/{task.subtasks.length}
+            </span>
           </div>
-          <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
-            <div className="h-full bg-cyan-400/60 rounded-full transition-all"
+          <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-500 ${completedSubs === task.subtasks.length ? "bg-emerald-400/70" : "bg-cyan-400/60"}`}
               style={{ width: `${task.subtasks.length ? (completedSubs / task.subtasks.length) * 100 : 0}%` }} />
           </div>
         </div>
@@ -117,17 +120,40 @@ const TaskCard = memo(function TaskCard({ task, onMove, onOpen, isDragging, onDr
 
       <div className="flex items-center justify-between">
         <div className="flex -space-x-1.5">
-          {task.assignees.slice(0, 3).map(a => (
-            <div key={a.id} className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500/40 to-violet-500/40 ring-1 ring-[#111116] flex items-center justify-center text-[9px] font-bold text-white">
-              {a.userId.charAt(0).toUpperCase()}
+          {task.assignees.slice(0, 3).map(a => {
+            const label = a.user?.name ?? a.user?.email ?? "";
+            const initials = label
+              ? label.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+              : "?";
+            return a.user?.image ? (
+              <img key={a.id} src={a.user.image} alt={label} title={label}
+                className="w-6 h-6 rounded-full object-cover ring-2 ring-[#0d0d11]" />
+            ) : (
+              <div key={a.id} title={label}
+                className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500/40 to-violet-500/40 ring-2 ring-[#0d0d11] flex items-center justify-center text-[9px] font-bold text-white">
+                {initials}
+              </div>
+            );
+          })}
+          {task.assignees.length > 3 && (
+            <div className="w-6 h-6 rounded-full bg-white/[0.07] ring-2 ring-[#0d0d11] flex items-center justify-center text-[9px] font-semibold text-zinc-400">
+              +{task.assignees.length - 3}
             </div>
-          ))}
+          )}
         </div>
-        {task.dueDate && (
-          <span className={`text-[10px] font-medium ${isOverdue ? "text-red-400" : task.status !== "DONE" && relativeDue(task.dueDate) === "Today" ? "text-amber-400" : "text-zinc-600"}`}>
-            {isOverdue && "⚠ "}{relativeDue(task.dueDate)}
-          </span>
-        )}
+        {task.dueDate && (() => {
+          const label = relativeDue(task.dueDate);
+          const isToday = !isOverdue && task.status !== "DONE" && label === "Today";
+          return (
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border tabular-nums ${
+              isOverdue ? "text-red-400 bg-red-500/10 border-red-500/20"
+                : isToday ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                : "text-zinc-500 border-white/[0.07]"
+            }`}>
+              {isOverdue && "⚠ "}{label}
+            </span>
+          );
+        })()}
       </div>
     </div>
   );
@@ -204,26 +230,34 @@ const ProjectCard = memo(function ProjectCard({ project, onSelect, onUpdate, onD
           className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/[0.05] hover:bg-red-500/20 text-zinc-600 hover:text-red-400 transition-all text-xs">×</button>
       </div>
 
-      <div className="flex items-center gap-2.5 mb-3">
+      <div className="flex items-center gap-2.5 mb-2">
         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color, boxShadow: `0 0 8px ${project.color}60` }} />
         <span className="text-sm font-semibold text-zinc-100 truncate pr-12">{project.name}</span>
       </div>
 
-      {project.description && (
-        <p className="text-xs text-zinc-600 mb-3 line-clamp-2 leading-relaxed">{project.description}</p>
-      )}
+      <p className="text-xs text-zinc-600 mb-4 line-clamp-2 leading-relaxed min-h-[2rem]">
+        {project.description || <span className="text-zinc-700">No description</span>}
+      </p>
 
-      {total > 0 && (
-        <div className="mb-3">
-          <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: project.color }} />
+      {total > 0 ? (
+        <div className="mb-3.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-zinc-600 tabular-nums">{done}/{total} done</span>
+            <span className="text-[10px] font-semibold text-zinc-500 tabular-nums">{pct}%</span>
+          </div>
+          <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
           </div>
         </div>
+      ) : (
+        <div className="mb-3.5 h-1 rounded-full bg-white/[0.04]" aria-hidden />
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-zinc-600">{open} open · {done} done</span>
-        <span className="text-[10px] font-semibold text-zinc-700 group-hover:text-zinc-400 transition-colors">Open board →</span>
+        <span className="text-[11px] text-zinc-500 tabular-nums">
+          {total === 0 ? "No tasks yet" : `${open} open · ${done} done`}
+        </span>
+        <span className="text-[10px] font-semibold text-zinc-700 group-hover:text-cyan-400 transition-colors">Open board →</span>
       </div>
     </div>
   );
@@ -243,14 +277,21 @@ function ProjectOverview({ projects, onSelect, onRefresh, loading }: {
 
   return (
     <div className="flex flex-col gap-5 h-full">
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-base font-semibold text-zinc-100">Projects</h2>
-          <p className="text-xs text-zinc-600 mt-0.5">Select a project to open its Kanban board</p>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-lg font-semibold text-zinc-100 tracking-tight">Projects</h2>
+            {projects.length > 0 && (
+              <span className="text-[11px] font-semibold tabular-nums text-zinc-500 bg-white/[0.05] border border-white/[0.07] px-2 py-0.5 rounded-full">
+                {projects.length}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-600 mt-1">Select a project to open its Kanban board</p>
         </div>
         <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition-all">
-          + New Project
+          className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors">
+          <span className="text-sm leading-none">+</span> New Project
         </button>
       </div>
 
@@ -274,15 +315,21 @@ function ProjectOverview({ projects, onSelect, onRefresh, loading }: {
           ))}
         </div>
       ) : projects.length === 0 && !showCreate ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-2xl">📁</div>
-          <div>
-            <p className="text-sm font-medium text-zinc-300">No projects yet</p>
-            <p className="text-xs text-zinc-600 mt-1">Create one above to get started</p>
-          </div>
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState
+            icon="📁"
+            title="No projects yet"
+            description="Projects hold your Kanban board, contributors and task history. Create your first one to get started."
+            action={
+              <button onClick={() => setShowCreate(true)}
+                className="text-xs font-semibold px-4 py-2 rounded-xl bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 hover:bg-cyan-500/20 transition-colors">
+                + New Project
+              </button>
+            }
+          />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 content-start overflow-y-auto">
+        <div className="fade-up grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 content-start overflow-y-auto pb-1">
           {projects.map(p => (
             <ProjectCard key={p.id} project={p}
               onSelect={() => onSelect(p.id)}
@@ -438,27 +485,26 @@ function ProjectHeader({ project, taskTotal, done, pct, projectId, onProjectUpda
 
   return (
     <>
-      <div className="flex-shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm" style={{ marginBottom: '1.25rem' }}>
-        <div className="h-1 w-full rounded-t-2xl" style={{ backgroundColor: project.color }} />
-        <div className="flex items-start gap-4 flex-wrap" style={{ padding: '1rem 1.25rem' }}>
+      <div className="flex-shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm overflow-hidden mb-5">
+        <div className="h-[3px] w-full" style={{ backgroundColor: project.color, boxShadow: `0 0 12px ${project.color}55` }} />
+        <div className="flex items-start gap-4 flex-wrap px-5 py-4">
 
           {/* Left: name + description + progress */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color, boxShadow: `0 0 8px ${project.color}80` }} />
-              <h2 className="text-base font-bold text-zinc-100 truncate">{project.name}</h2>
-            </div>
-            {project.description && <p className="text-xs text-zinc-500 mb-2 leading-relaxed">{project.description}</p>}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 max-w-[200px] h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <h2 className="text-base font-bold text-zinc-100 truncate leading-tight">{project.name}</h2>
+            {project.description && <p className="text-xs text-zinc-500 mt-1 leading-relaxed line-clamp-2">{project.description}</p>}
+            <div className="flex items-center gap-3 mt-3">
+              <div className="flex-1 max-w-[220px] h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
               </div>
-              <span className="text-[11px] text-zinc-500 tabular-nums">{done}/{taskTotal} done · {pct}%</span>
+              <span className="text-[11px] text-zinc-500 tabular-nums flex-shrink-0">
+                {taskTotal === 0 ? "No tasks yet" : `${done}/${taskTotal} done · ${pct}%`}
+              </span>
             </div>
           </div>
 
           {/* Right: member avatars + ⋯ menu */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2.5 flex-shrink-0">
             <div className="flex -space-x-2">
               {members.slice(0, 5).map(m => (
                 <div key={m.userId} title={m.name ?? m.email ?? m.userId}>
@@ -474,8 +520,9 @@ function ProjectHeader({ project, taskTotal, done, pct, projectId, onProjectUpda
 
             {/* Triple-dot menu button */}
             <button ref={menuBtnRef} onClick={openMenu}
-              className={`w-7 h-7 flex items-center justify-center rounded-xl border transition-all text-base leading-none ${
-                menuOpen ? "bg-white/[0.08] text-zinc-200 border-white/[0.18]" : "border-white/[0.08] text-zinc-500 hover:text-zinc-200 hover:border-white/[0.18]"
+              aria-label="Project options" aria-expanded={menuOpen} title="Project options"
+              className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-colors text-base leading-none ${
+                menuOpen ? "bg-white/[0.08] text-zinc-100 border-white/[0.18]" : "border-white/[0.08] text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.05] hover:border-white/[0.18]"
               }`}>
               ⋯
             </button>
@@ -487,7 +534,7 @@ function ProjectHeader({ project, taskTotal, done, pct, projectId, onProjectUpda
       {menuOpen && typeof document !== "undefined" && createPortal(
         <div ref={menuRef}
           style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, width: '11rem' }}
-          className="bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden py-1">
+          className="pop-in bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden py-1">
           <button onClick={() => { setMenuOpen(false); setEditOpen(true); }}
             className="w-full flex items-center gap-2.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-100 transition-colors text-left"
             style={{ padding: '0.625rem 1rem' }}>
@@ -515,7 +562,7 @@ function ProjectHeader({ project, taskTotal, done, pct, projectId, onProjectUpda
       {pickerOpen && typeof document !== "undefined" && createPortal(
         <div ref={pickerRef}
           style={{ position: 'fixed', top: pickerPos.top, right: pickerPos.right, zIndex: 9999, width: '18rem' }}
-          className="bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden">
+          className="pop-in bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
           <div className="border-b border-white/[0.06]" style={{ padding: '0.75rem 1rem' }}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-zinc-300">Contributors</p>
@@ -695,7 +742,7 @@ export default function KanbanBoard({ projects, activeProjectId, onSelectProject
           onProjectDeleted={() => { onSelectProject(""); onRefreshProjects(); }}
         />
       )}
-      <div className="flex flex-1 min-h-0 overflow-x-auto md:overflow-x-hidden snap-x snap-mandatory md:snap-none pb-2 md:pb-0" style={{ gap: '1.25rem' }}>
+      <div className="flex flex-1 min-h-0 overflow-x-auto md:overflow-x-hidden snap-x snap-mandatory md:snap-none pb-2 md:pb-0 gap-3 md:gap-4">
         {COLUMNS.map(col => {
           const colTasks = tasksByStatus[col.id];
           const isOver = dragOverCol === col.id && !!draggingId && tasks.find(t => t.id === draggingId)?.status !== col.id;
@@ -708,14 +755,16 @@ export default function KanbanBoard({ projects, activeProjectId, onSelectProject
               onDrop={e => handleDrop(e, col.id)}
             >
               {/* Column header */}
-              <div className="flex items-center gap-2 mb-4 px-2">
-                <div className={`w-2 h-2 rounded-full ${col.dot} ${col.id === "IN_PROGRESS" ? "animate-pulse" : ""}`} />
-                <span className={`text-xs font-bold uppercase tracking-wider ${col.color}`}>{col.label}</span>
-                <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${col.countColor}`}>{colTasks.length}</span>
+              <div className="flex items-center gap-2 mb-3 px-3 pb-2.5 border-b border-white/[0.05]">
+                <span className={`w-2 h-2 rounded-full ${col.dot} ${col.id === "IN_PROGRESS" ? "animate-pulse" : ""}`} aria-hidden />
+                <h3 className={`text-[11px] font-bold uppercase tracking-[0.12em] ${col.color}`}>{col.label}</h3>
+                <span className={`ml-auto text-[10px] font-semibold tabular-nums min-w-[1.25rem] text-center px-1.5 py-0.5 rounded-full ${col.countColor}`}>
+                  {colTasks.length}
+                </span>
               </div>
 
-              <div className={`flex flex-col gap-3 flex-1 overflow-y-auto rounded-2xl p-3 transition-all duration-200 ${
-                isOver ? `border-2 border-dashed ${col.accent} bg-white/[0.02]` : "border-2 border-transparent"
+              <div className={`flex flex-col gap-2.5 flex-1 overflow-y-auto rounded-2xl p-2 transition-colors duration-200 ${
+                isOver ? `border-2 border-dashed ${col.accent} bg-white/[0.025]` : "border-2 border-transparent"
               }`}>
                 {loading ? (
                   <div className="flex flex-col gap-3 pt-1">
@@ -730,12 +779,16 @@ export default function KanbanBoard({ projects, activeProjectId, onSelectProject
                     ))}
                   </div>
                 ) : colTasks.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center gap-1.5 h-24 rounded-xl border-2 border-dashed transition-all ${
-                    isOver ? "border-white/20 bg-white/[0.02]" : "border-white/[0.04] opacity-40"
-                  }`}>
-                    <p className="text-[11px] text-zinc-700">{isOver ? "Drop here" : "Empty"}</p>
-                    {!isOver && <p className="text-[10px] text-zinc-800">+ Add task below</p>}
-                  </div>
+                  <button
+                    onClick={() => setCreateModal({ open: true, status: col.id })}
+                    className={`flex flex-col items-center justify-center gap-1 h-24 w-full rounded-xl border border-dashed transition-colors ${
+                      isOver
+                        ? "border-white/25 bg-white/[0.03] text-zinc-300"
+                        : "border-white/[0.07] text-zinc-700 hover:border-white/[0.14] hover:text-zinc-500 hover:bg-white/[0.02]"
+                    }`}>
+                    <span className="text-[11px] font-medium">{isOver ? "Drop here" : "Nothing here"}</span>
+                    {!isOver && <span className="text-[10px]">Click to add a task</span>}
+                  </button>
                 ) : (
                   colTasks.map(task => (
                     <TaskCard key={task.id} task={task}
@@ -748,12 +801,14 @@ export default function KanbanBoard({ projects, activeProjectId, onSelectProject
                 )}
 
                 {/* Add task button → opens full modal */}
-                <button
-                  onClick={() => setCreateModal({ open: true, status: col.id })}
-                  className="flex items-center gap-2 w-full px-4 py-3 rounded-xl text-zinc-700 hover:text-zinc-400 hover:bg-white/[0.03] transition-all text-sm"
-                >
-                  <span className="text-base leading-none">+</span> Add task
-                </button>
+                {colTasks.length > 0 && (
+                  <button
+                    onClick={() => setCreateModal({ open: true, status: col.id })}
+                    className="flex items-center gap-2 w-full px-3.5 py-2.5 rounded-xl text-[13px] text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.04] transition-colors"
+                  >
+                    <span className="text-base leading-none">+</span> Add task
+                  </button>
+                )}
               </div>
             </div>
           );
