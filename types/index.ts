@@ -1,8 +1,3 @@
-export interface CalendarEvent {
-  id: string; summary: string; start: string; end: string;
-  location?: string; description?: string; colorId?: string;
-}
-
 export interface Subtask {
   id: string; title: string; description?: string | null; completed: boolean; taskId: string; createdAt: string;
 }
