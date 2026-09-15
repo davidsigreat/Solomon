@@ -17,28 +17,35 @@ function Clock() {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  if (!time) return <div className="w-28 h-8" />;
+  if (!time) return <div className="w-24 h-8" />;
   return (
-    <div className="text-right tabular-nums">
-      <p className="text-base font-mono font-bold text-zinc-100 leading-none">
-        {time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+    <div className="text-right tabular-nums leading-none">
+      <p className="text-[15px] font-mono font-semibold text-zinc-200">
+        {time.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", hour12: false })}
+        <span className="text-zinc-600 text-[11px] ml-0.5">
+          {time.toLocaleTimeString("en", { second: "2-digit" }).padStart(2, "0")}
+        </span>
       </p>
-      <p className="text-[10px] text-zinc-600 mt-1">
-        {time.toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+      <p className="text-[10px] text-zinc-600 mt-1.5">
+        {time.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}
       </p>
     </div>
   );
 }
 
-function CollapseButton({ collapsed, onClick, side }: { collapsed: boolean; onClick: () => void; side: "left" | "right" }) {
-  const arrow = side === "left" ? (collapsed ? "›" : "‹") : (collapsed ? "‹" : "›");
+function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      title={collapsed ? "Expand" : "Collapse"}
-      className="w-5 h-8 flex items-center justify-center text-zinc-700 hover:text-zinc-300 hover:bg-white/[0.05] rounded transition-all text-sm flex-shrink-0"
+      title={collapsed ? "Show sidebar" : "Hide sidebar"}
+      aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
+      aria-expanded={!collapsed}
+      className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors flex-shrink-0"
     >
-      {arrow}
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden
+        className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}>
+        <path d="M7.5 2L3.5 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
     </button>
   );
 }
@@ -135,44 +142,56 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Header */}
-        <header className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06] flex-shrink-0 bg-black/60 backdrop-blur-md">
+        <header className="flex items-center gap-2 px-4 md:px-6 h-16 border-b border-white/[0.06] flex-shrink-0 bg-black/60 backdrop-blur-md">
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="md:hidden w-7 h-7 flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded transition-all flex-shrink-0"
+            aria-label="Open menu"
+            className="md:hidden w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06] rounded-lg transition-colors flex-shrink-0"
           >
-            <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+            <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden>
               <rect width="14" height="1.5" rx="0.75" fill="currentColor"/>
               <rect y="4.25" width="14" height="1.5" rx="0.75" fill="currentColor"/>
               <rect y="8.5" width="14" height="1.5" rx="0.75" fill="currentColor"/>
             </svg>
           </button>
           {/* Desktop collapse button */}
-          <div className="hidden md:flex">
-            <CollapseButton collapsed={!leftOpen} onClick={toggleLeft} side="left" />
+          <div className="hidden md:flex mr-1">
+            <CollapseButton collapsed={!leftOpen} onClick={toggleLeft} />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-baseline gap-2 min-w-0">
               {activeProjectData && (
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: activeProjectData.color, boxShadow: `0 0 8px ${activeProjectData.color}60` }} />
+                <button onClick={() => setActiveProject(null)}
+                  className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-300 transition-colors flex-shrink-0">
+                  Projects
+                  <span className="text-zinc-700">/</span>
+                </button>
               )}
-              <h1 className="text-sm font-semibold text-zinc-100 truncate">
-                {activeProjectData?.name ?? "All Projects"}
-              </h1>
+              <span className="flex items-center gap-2 min-w-0">
+                {activeProjectData && (
+                  <span className="w-2 h-2 rounded-full flex-shrink-0 self-center"
+                    style={{ backgroundColor: activeProjectData.color, boxShadow: `0 0 8px ${activeProjectData.color}70` }} />
+                )}
+                <h1 className="text-[15px] font-semibold text-zinc-100 truncate leading-tight">
+                  {activeProjectData?.name ?? "All Projects"}
+                </h1>
+              </span>
               {activeProjectData?.description && (
-                <span className="text-xs text-zinc-600 hidden lg:block truncate">— {activeProjectData.description}</span>
+                <span className="text-xs text-zinc-600 hidden lg:block truncate">{activeProjectData.description}</span>
               )}
             </div>
-            <p className="text-[10px] text-zinc-600 mt-0.5">
+            <p className="text-[11px] text-zinc-600 mt-0.5 truncate">
               {greeting()}, {session?.user?.name?.split(" ")[0] ?? "David"}.
             </p>
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden md:block mr-1">
             <Clock />
           </div>
+
+          <div className="hidden md:block w-px h-6 bg-white/[0.07] mx-1" aria-hidden />
 
           <NotificationBell onSelectProject={setActiveProject} />
 
@@ -180,10 +199,11 @@ export default function DashboardPage() {
           <button
             onClick={() => setProfileOpen(true)}
             title="Profile"
-            className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white/[0.07] hover:ring-white/[0.25] transition-all flex-shrink-0"
+            aria-label="Open profile"
+            className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/[0.12] hover:ring-cyan-400/40 transition-all flex-shrink-0"
           >
             {session?.user?.image
-              ? <img src={session.user.image} alt="avatar" className="w-full h-full object-cover" />
+              ? <img src={session.user.image} alt="" className="w-full h-full object-cover" />
               : <div className="w-full h-full bg-gradient-to-br from-cyan-500/40 to-violet-500/40 flex items-center justify-center text-xs font-bold text-white">
                   {session?.user?.name?.[0]?.toUpperCase() ?? "D"}
                 </div>
@@ -193,7 +213,7 @@ export default function DashboardPage() {
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          <div className="flex-1 overflow-hidden flex flex-col min-w-0 min-h-0" style={{ padding: '1.5rem 1.75rem' }}>
+          <div className="flex-1 overflow-hidden flex flex-col min-w-0 min-h-0 px-4 py-5 md:px-7 md:py-6">
             <KanbanBoard
               projects={projects}
               activeProjectId={activeProject}

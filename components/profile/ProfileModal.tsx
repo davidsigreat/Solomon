@@ -97,13 +97,15 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     <div
       ref={overlayRef}
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
     >
-      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Profile"
+        className="w-full max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-t-2xl sm:rounded-2xl shadow-2xl shadow-black/60">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-black/70 backdrop-blur-xl">
           <h2 className="text-sm font-semibold text-zinc-100">Profile</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-all text-lg">×</button>
+          <button onClick={onClose} aria-label="Close"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.07] transition-colors text-lg">×</button>
         </div>
 
         <form onSubmit={handleSave} className="px-6 py-6 flex flex-col gap-5">
@@ -128,7 +130,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
 
           {/* Display name */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Display Name</label>
+            <label className="label-caps block mb-1.5">Display Name</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Your name..."
               className="w-full bg-[#111116] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-700 outline-none transition-colors"
@@ -137,7 +139,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
 
           {/* Avatar URL */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Avatar URL</label>
+            <label className="label-caps block mb-1.5">Avatar URL</label>
             <input type="url" value={image} onChange={e => setImage(e.target.value)}
               placeholder="https://example.com/avatar.jpg"
               className="w-full bg-[#111116] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3.5 py-2.5 text-sm text-zinc-300 placeholder-zinc-700 outline-none transition-colors"
@@ -147,7 +149,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
 
           {/* Email (read-only) */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Email</label>
+            <label className="label-caps block mb-1.5">Email</label>
             <div className="w-full bg-white/[0.02] border border-white/[0.05] rounded-xl px-3.5 py-2.5 text-sm text-zinc-600 select-all">
               {user.email}
             </div>
@@ -155,7 +157,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
 
           {/* API keys — for connecting outside applications to this app's API */}
           <div className="pt-1 border-t border-white/[0.06]">
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mt-4 mb-1.5">API Keys</label>
+            <label className="label-caps block mt-4 mb-1.5">API Keys</label>
             <p className="text-[10px] text-zinc-700 mb-2.5">
               Use a key as a <code className="text-zinc-500">Bearer</code> token against <code className="text-zinc-500">/api/v1/*</code> to connect external apps to your projects and tasks.
             </p>

@@ -182,35 +182,32 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
 
   return (
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      style={{ padding: '1rem' }}>
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-sm p-0 sm:p-4">
 
-      <form onSubmit={handleSave}
-        className="w-full max-w-2xl bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        style={{ maxHeight: '90vh' }}>
+      <form onSubmit={handleSave} role="dialog" aria-modal="true" aria-label={`Edit task: ${task.title}`}
+        className="w-full max-w-2xl bg-black/70 backdrop-blur-xl border border-white/[0.1] rounded-t-2xl sm:rounded-2xl shadow-2xl shadow-black/60 flex flex-col overflow-hidden max-h-[92vh] sm:max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.07] flex-shrink-0"
-          style={{ padding: '1rem 1.75rem' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+        <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] flex-shrink-0 px-5 sm:px-7 py-3.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" aria-hidden
               style={{ backgroundColor: task.project.color, boxShadow: `0 0 8px ${task.project.color}80` }} />
-            <span className="text-sm font-semibold text-zinc-300">{task.project.name}</span>
-            <span className="text-zinc-700 text-sm">›</span>
-            <span className="text-xs text-zinc-600 truncate max-w-[200px]">Edit task</span>
+            <span className="text-[13px] font-semibold text-zinc-200 truncate">{task.project.name}</span>
+            <span className="text-zinc-700 text-sm" aria-hidden>›</span>
+            <span className="text-xs text-zinc-600 flex-shrink-0">Edit task</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button type="button" onClick={() => { onDelete(task.id); onClose(); }}
-              className="text-xs text-zinc-700 hover:text-red-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20">
+              className="text-xs text-zinc-500 hover:text-red-400 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20">
               Delete
             </button>
-            <button type="button" onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-all text-lg leading-none">×</button>
+            <button type="button" onClick={onClose} aria-label="Close"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.07] transition-colors text-lg leading-none">×</button>
           </div>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto flex flex-col" style={{ padding: '1.5rem 1.75rem', gap: '1.25rem' }}>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-5 px-5 sm:px-7 py-6">
 
           {/* Title */}
           <div>
@@ -223,10 +220,10 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
           </div>
 
           {/* Status + Priority + Dates — 3 columns */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
             {/* Status */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Status</label>
+              <label className="label-caps block mb-2">Status</label>
               <div className="flex flex-col gap-1">
                 {STATUSES.map(s => (
                   <button key={s} type="button" onClick={() => setStatus(s as Task["status"])}
@@ -244,7 +241,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
 
             {/* Priority */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Priority</label>
+              <label className="label-caps block mb-2">Priority</label>
               <div className="flex flex-col gap-1">
                 {PRIORITIES.map(p => (
                   <button key={p} type="button" onClick={() => setPriority(p)}
@@ -263,12 +260,12 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
             {/* Dates */}
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Start Date</label>
+                <label className="label-caps block mb-1.5">Start Date</label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-zinc-300 outline-none transition-colors" />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Due Date</label>
+                <label className="label-caps block mb-1.5">Due Date</label>
                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.07] focus:border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-zinc-300 outline-none transition-colors" />
               </div>
@@ -277,7 +274,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
 
           {/* Description */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-1.5">Description</label>
+            <label className="label-caps block mb-1.5">Description</label>
             <textarea
               value={description} onChange={e => setDescription(e.target.value)}
               placeholder="What needs to be done?" rows={3}
@@ -288,7 +285,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
           {/* Subtasks */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Subtasks</label>
+              <label className="label-caps">Subtasks</label>
               {subtasks.length > 0 && (
                 <span className="text-[10px] text-zinc-600">{completedSubs}/{subtasks.length} done</span>
               )}
@@ -329,7 +326,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }: Props) 
 
           {/* Contributors — project contributors only */}
           <div>
-            <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider block mb-2">Contributors</label>
+            <label className="label-caps block mb-2">Contributors</label>
             {projectMembers.length === 0 ? (
               <p className="text-xs text-zinc-700">No contributors on this project yet. Add them via the project header.</p>
             ) : (

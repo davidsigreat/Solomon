@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface Notification {
   id: string;
@@ -19,6 +20,8 @@ const TYPE_META = {
 };
 
 const DISMISSED_KEY = "solomon-dismissed-notifs";
+const PANEL_WIDTH = 320; // px — matches w-80
+const VIEWPORT_MARGIN = 8; // px — keep clear of the screen edge on narrow viewports
 
 function getDismissed(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]")); }
@@ -37,7 +40,10 @@ export default function NotificationBell({ onSelectProject }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -60,11 +66,35 @@ export default function NotificationBell({ onSelectProject }: Props) {
     return () => { clearInterval(id); window.removeEventListener("storage", onStorage); };
   }, [load]);
 
-  // Close on outside click
+  // Position the portaled panel against the bell button — recomputed whenever
+  // it opens and on resize, so it tracks the trigger instead of being clipped
+  // by an overflow-hidden ancestor (the dashboard shell is overflow-hidden
+  // top to bottom for its own scroll regions).
+  const updatePosition = useCallback(() => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const maxRight = Math.max(window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN, VIEWPORT_MARGIN);
+    const right = Math.min(Math.max(window.innerWidth - r.right, VIEWPORT_MARGIN), maxRight);
+    setPos({ top: r.bottom + 8, right });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    return () => window.removeEventListener("resize", updatePosition);
+  }, [open, updatePosition]);
+
+  // Close on outside click — the panel is portaled to <body>, so it's no
+  // longer a DOM descendant of the trigger; check both refs.
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -90,12 +120,15 @@ export default function NotificationBell({ onSelectProject }: Props) {
   }
 
   return (
-    <div ref={ref} className="relative flex-shrink-0">
+    <div ref={wrapRef} className="relative flex-shrink-0">
       <button
+        ref={btnRef}
         onClick={() => setOpen(v => !v)}
         title="Notifications"
-        className={`relative w-8 h-8 flex items-center justify-center rounded-xl transition-all ${
-          open ? "bg-white/[0.08] text-zinc-200" : "text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05]"
+        aria-label={urgent.length > 0 ? `Notifications (${urgent.length} urgent)` : "Notifications"}
+        aria-expanded={open}
+        className={`relative w-8 h-8 flex items-center justify-center rounded-xl transition-colors ${
+          open ? "bg-white/[0.08] text-zinc-100" : "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]"
         }`}
       >
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
@@ -104,27 +137,35 @@ export default function NotificationBell({ onSelectProject }: Props) {
           <path d="M6 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
         </svg>
         {urgent.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-500 ring-2 ring-[#0b0b0f] text-[9px] font-bold text-white flex items-center justify-center leading-none tabular-nums">
             {urgent.length > 9 ? "9+" : urgent.length}
           </span>
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-10 w-72 bg-[#111116] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
-            <span className="text-xs font-semibold text-zinc-300">Notifications</span>
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
+          className="pop-in w-80 max-w-[calc(100vw-1rem)] bg-[#111116] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-xs font-semibold text-zinc-200">Notifications</span>
+              {visible.length > 0 && <span className="text-[10px] text-zinc-600 tabular-nums">{visible.length}</span>}
+            </span>
             {visible.length > 0 && (
-              <button onClick={dismissAll} className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
+              <button onClick={dismissAll} className="text-[10px] text-zinc-500 hover:text-zinc-200 transition-colors">
                 Clear all
               </button>
             )}
           </div>
 
           {visible.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-center px-4">
-              <span className="text-lg">✓</span>
-              <p className="text-xs text-zinc-600">All caught up</p>
+            <div className="flex flex-col items-center gap-2 py-10 text-center px-4">
+              <span className="w-9 h-9 rounded-xl bg-white/[0.035] border border-white/[0.07] flex items-center justify-center text-sm text-zinc-500">✓</span>
+              <p className="text-xs font-medium text-zinc-300">All caught up</p>
+              <p className="text-[10px] text-zinc-600">No tasks due soon</p>
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto">
@@ -133,8 +174,8 @@ export default function NotificationBell({ onSelectProject }: Props) {
                 const due = new Date(n.dueDate);
                 const dateLabel = due.toLocaleDateString("en", { month: "short", day: "numeric" });
                 return (
-                  <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${meta.dot}`} />
+                  <div key={n.id} className="group flex items-start gap-3 px-4 py-3 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors">
+                    <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${meta.dot}`} aria-hidden />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-zinc-200 truncate leading-snug">{n.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -145,24 +186,25 @@ export default function NotificationBell({ onSelectProject }: Props) {
                         <span className={`text-[10px] font-medium ${meta.text}`}>{meta.label} · {dateLabel}</span>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                      <button onClick={() => handleGoTo(n)}
-                        className="text-[10px] text-zinc-600 hover:text-cyan-400 transition-colors leading-none">→</button>
-                      <button onClick={() => dismiss(n.id)}
-                        className="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors leading-none">×</button>
+                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleGoTo(n)} aria-label={`Open ${n.title}`} title="Open project"
+                        className="w-6 h-6 flex items-center justify-center rounded-md text-xs text-zinc-500 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors">→</button>
+                      <button onClick={() => dismiss(n.id)} aria-label={`Dismiss ${n.title}`} title="Dismiss"
+                        className="w-6 h-6 flex items-center justify-center rounded-md text-xs text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors">×</button>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-          <div className="px-4 py-2.5 border-t border-white/[0.05]">
+          <div className="px-4 py-2.5 border-t border-white/[0.06] bg-white/[0.015]">
             <a href="/notifications" onClick={() => setOpen(false)}
-              className="text-[11px] text-zinc-600 hover:text-cyan-400 transition-colors w-full text-center block">
+              className="text-[11px] text-zinc-500 hover:text-cyan-300 transition-colors w-full text-center block py-0.5">
               View all notifications →
             </a>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

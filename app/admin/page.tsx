@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
+import PageHeader from "@/components/layout/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
 
 type UserRole = "VIEWER" | "MEMBER" | "ADMIN";
 interface AppUser { id: string; email: string; role: UserRole; note: string | null; createdAt: string; }
@@ -96,47 +98,49 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
 
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-black/60 backdrop-blur-md">
-        <div className="flex items-center justify-between" style={{ padding: '1rem 2rem' }}>
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/dashboard")} className="text-zinc-600 hover:text-zinc-300 transition-colors text-sm">← Dashboard</button>
-            <div className="w-px h-4 bg-white/[0.08]" />
-            <h1 className="text-sm font-semibold">Admin Panel</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono text-zinc-700 bg-white/[0.04] px-2 py-1 rounded-full border border-white/[0.05]">RESTRICTED</span>
+      <PageHeader
+        title="Admin Panel"
+        subtitle="Access control for the Solomon workspace"
+        actions={
+          <>
+            <span className="hidden sm:inline text-[10px] font-mono text-zinc-600 bg-white/[0.04] px-2 py-1 rounded-full border border-white/[0.06] tracking-wider">
+              RESTRICTED
+            </span>
             <button onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => router.push("/login") } })}
-              className="text-xs text-zinc-600 hover:text-zinc-300 transition-colors">Sign out</button>
-          </div>
-        </div>
-      </header>
+              className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors px-2 py-1 rounded-lg">
+              Sign out
+            </button>
+          </>
+        }
+      />
 
-      <div style={{ padding: '2rem 2.5rem' }}>
+      <div className="fade-up px-4 md:px-8 py-7 max-w-[80rem] mx-auto">
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-7">
           {[
-            { label: "Admins",  value: admins,  color: "text-violet-400" },
-            { label: "Members", value: members, color: "text-blue-400" },
-            { label: "Viewers", value: viewers, color: "text-zinc-400" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.07] rounded-2xl" style={{ padding: '1.5rem' }}>
-              <p className="text-xs text-zinc-500 mb-2">{label}</p>
-              <p className={`text-3xl font-bold ${color}`}>{value}</p>
+            { label: "Admins",  value: admins,  color: "text-violet-400", glow: "rgba(167,139,250,0.14)" },
+            { label: "Members", value: members, color: "text-blue-400",   glow: "rgba(96,165,250,0.14)" },
+            { label: "Viewers", value: viewers, color: "text-zinc-300",   glow: "rgba(255,255,255,0.05)" },
+          ].map(({ label, value, color, glow }) => (
+            <div key={label} className="relative overflow-hidden bg-white/[0.03] backdrop-blur-sm border border-white/[0.07] rounded-2xl p-5 md:p-6">
+              <div className="absolute inset-0 pointer-events-none" aria-hidden
+                style={{ background: `radial-gradient(circle at 25% 40%, ${glow}, transparent 70%)` }} />
+              <p className="label-caps relative">{label}</p>
+              <p className={`text-[2rem] font-bold tabular-nums leading-none mt-3 relative ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.05] w-fit mb-6">
+        <div className="flex gap-1 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06] w-fit mb-5">
           {([
             ["users", `Users (${appUsers.length})`],
             ["registered", `Registered (${neonUsers.length})`],
           ] as const).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                tab === t ? "bg-white/[0.08] text-zinc-100" : "text-zinc-600 hover:text-zinc-300"
+            <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                tab === t ? "bg-white/[0.09] text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
               }`}>{label}</button>
           ))}
         </div>
@@ -158,8 +162,8 @@ export default function AdminPage() {
             </div>
 
             {/* Add user form */}
-            <form onSubmit={addUser} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl" style={{ padding: '1.25rem 1.5rem' }}>
-              <p className="text-xs font-semibold text-zinc-400 mb-3">Add user</p>
+            <form onSubmit={addUser} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5">
+              <p className="label-caps mb-3">Add user</p>
               <div className="flex gap-3 flex-wrap">
                 <input type="email" placeholder="email@example.com" value={newEmail} onChange={e => setNewEmail(e.target.value)} required
                   className="flex-1 min-w-[200px] bg-[#09090b] border border-white/[0.08] focus:border-cyan-500/40 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-700 outline-none" />
@@ -172,8 +176,8 @@ export default function AdminPage() {
                   <option value="ADMIN">Admin</option>
                 </select>
                 <button type="submit" disabled={adding}
-                  className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-all disabled:opacity-40 whitespace-nowrap">
-                  {adding ? "Adding..." : "+ Add"}
+                  className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-colors disabled:opacity-40 whitespace-nowrap">
+                  {adding ? "Adding…" : "+ Add"}
                 </button>
               </div>
               {addError && <p className="text-xs text-red-400 mt-2">{addError}</p>}
@@ -183,9 +187,9 @@ export default function AdminPage() {
             <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/[0.05]">
+                  <tr className="border-b border-white/[0.06] bg-white/[0.015]">
                     {["Email", "Note", "Role", "Added", ""].map(h => (
-                      <th key={h} className="text-left px-5 py-3 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">{h}</th>
+                      <th key={h} scope="col" className="text-left px-5 py-3 label-caps">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -193,9 +197,9 @@ export default function AdminPage() {
                   {appUsers.map(u => {
                     const meta = ROLE_META[u.role];
                     return (
-                      <tr key={u.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                        <td className="px-5 py-3.5 text-sm font-medium text-zinc-200">{u.email}</td>
-                        <td className="px-5 py-3.5 text-sm text-zinc-600">{u.note ?? "—"}</td>
+                      <tr key={u.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.025] transition-colors">
+                        <td className="px-5 py-3.5 text-[13px] font-medium text-zinc-200">{u.email}</td>
+                        <td className="px-5 py-3.5 text-[13px] text-zinc-600">{u.note ?? "—"}</td>
                         <td className="px-5 py-3.5">
                           <select
                             value={u.role}
@@ -212,7 +216,8 @@ export default function AdminPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <button onClick={() => removeUser(u.email)}
-                            className="text-[11px] px-2.5 py-1 rounded-lg border border-red-500/20 text-red-500/70 hover:text-red-400 transition-all">
+                            aria-label={`Remove ${u.email}`}
+                            className="text-[11px] px-2.5 py-1 rounded-lg border border-red-500/20 text-red-500/70 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition-colors">
                             Remove
                           </button>
                         </td>
@@ -220,7 +225,10 @@ export default function AdminPage() {
                     );
                   })}
                   {appUsers.length === 0 && (
-                    <tr><td colSpan={5} className="px-5 py-10 text-sm text-zinc-700 text-center">No users added yet</td></tr>
+                    <tr><td colSpan={5}>
+                      <EmptyState size="sm" icon="🔐" title="No users added yet"
+                        description="Add an email above to grant someone access to Solomon." />
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -230,31 +238,34 @@ export default function AdminPage() {
 
         {tab === "registered" && (
           <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl overflow-hidden">
-            <p className="text-xs text-zinc-600 border-b border-white/[0.05]" style={{ padding: '0.75rem 1.25rem' }}>
-              Users who have signed in via Google OAuth — they need an entry in the Users tab to access the app.
+            <p className="text-xs text-zinc-500 leading-relaxed border-b border-white/[0.06] bg-white/[0.015] px-5 py-3">
+              Users who have signed in via Google OAuth — they still need an entry in the <span className="text-zinc-300">Users</span> tab to access the app.
             </p>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.05]">
+                <tr className="border-b border-white/[0.06]">
                   {["User", "Email"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">{h}</th>
+                    <th key={h} scope="col" className="text-left px-5 py-3 label-caps">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {neonUsers.map(u => (
-                  <tr key={u.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                  <tr key={u.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.025] transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
                         <Avatar name={u.name} image={u.image} />
-                        <span className="text-sm font-medium text-zinc-200">{u.name ?? "—"}</span>
+                        <span className="text-[13px] font-medium text-zinc-200">{u.name ?? "—"}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-zinc-500">{u.email}</td>
+                    <td className="px-5 py-3.5 text-[13px] text-zinc-500">{u.email}</td>
                   </tr>
                 ))}
                 {neonUsers.length === 0 && (
-                  <tr><td colSpan={2} className="px-5 py-10 text-sm text-zinc-700 text-center">No registered users yet</td></tr>
+                  <tr><td colSpan={2}>
+                    <EmptyState size="sm" icon="👤" title="No registered users yet"
+                      description="Anyone who signs in with Google will show up here." />
+                  </td></tr>
                 )}
               </tbody>
             </table>
