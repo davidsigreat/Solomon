@@ -18,7 +18,7 @@ The name is personal (David → Solomon), intentional, and thematically exact: a
 
 ---
 
-This system combines developer habit-tracking, scheduling automation, dynamic context gathering (weather/time), an LLM-powered command interface, and a deep **Claude + Obsidian intelligence layer** — all wrapped in a high-fidelity, sci-fi aesthetic.
+This system combines developer habit-tracking, scheduling automation, dynamic context gathering (weather/time), and a deep **Claude + Obsidian intelligence layer** — all wrapped in a high-fidelity, sci-fi aesthetic.
 
 At its core, **Obsidian serves as SOLOMON's persistent brain** — a structured, queryable, human-readable long-term memory store that the AI agent reads from before reasoning and writes back to after every meaningful interaction. Rather than memory living ephemerally inside a context window or opaquely inside a vector database, it lives in your vault: inspectable, editable, and linked.
 
@@ -32,10 +32,10 @@ The architecture consolidates frontend rendering and backend logic into a singul
 | :--- | :--- | :--- |
 | **Framework** | Next.js 14+ (App Router) | React client components + native Node.js API/Serverless routes |
 | **Styling** | Tailwind CSS + CSS Modules | Cyberpunk/holographic styling, custom animations, responsive layouts |
-| **Database** | Supabase (PostgreSQL) | Persistent state, chat histories, sprint logs, Obsidian sync cache |
+| **Database** | Supabase (PostgreSQL) | Persistent state, sprint logs, Obsidian sync cache |
 | **ORM** | Prisma | Type-safe queries and automated schema migrations |
 | **Authentication** | Auth.js (NextAuth.js v5) | Single-user whitelist via Google or GitHub OAuth |
-| **AI Processing** | Vercel AI SDK + Anthropic API | Streaming conversational tokens, structured synthesis, Obsidian NLP |
+| **AI Processing** | Vercel AI SDK + Anthropic API | Structured synthesis, Obsidian NLP |
 | **External APIs** | Google Calendar API, GitHub GraphQL API, OpenWeatherMap | Schedules, coding throughput, ambient context |
 | **Obsidian Bridge** | Obsidian Local REST API plugin + MCP Server | Bidirectional vault read/write from JARVIS command layer |
 
@@ -48,9 +48,6 @@ AUTHORIZED_EMAIL=
 
 # Database
 DATABASE_URL=
-
-# AI
-ANTHROPIC_API_KEY=
 
 # Integrations
 GOOGLE_CLIENT_ID=
@@ -93,54 +90,6 @@ middleware.ts
 - [ ] Create `auth.config.ts` with Google provider
 - [ ] Create `middleware.ts` with email whitelist guard
 - [ ] Create `app/login/page.tsx` with OAuth trigger button
-
----
-
-### Module B: The Command Center (Conversational Engine)
-
-Central human-machine interface styled as a command terminal.
-
-**State Shape:**
-```ts
-type Session = { id: string; title: string; createdAt: Date }
-type Message = { id: string; sender: "USER" | "JARVIS"; content: string; createdAt: Date }
-
-// Client state
-const [sessions, setSessions] = useState<Session[]>([])
-const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
-```
-
-**Vercel AI SDK Integration:**
-```ts
-// app/api/chat/route.ts
-import { streamText } from "ai"
-import { anthropic } from "@ai-sdk/anthropic"
-
-export async function POST(req: Request) {
-  const { messages, sessionId } = await req.json()
-  const result = streamText({
-    model: anthropic("claude-opus-4-5"),
-    system: JARVIS_SYSTEM_PROMPT,
-    messages,
-    onFinish: async ({ text }) => {
-      await db.message.createMany({ data: [userMsg, { content: text, sender: "JARVIS", sessionId }] })
-    }
-  })
-  return result.toDataStreamResponse()
-}
-```
-
-**UI Components:**
-- `<SessionSidebar />` — lists sessions from Supabase, supports rename on double-click, delete on hover
-- `<MessageFeed />` — virtualized scroll (use `react-virtuoso` for perf), streams tokens via `useChat`
-- `<TerminalInput />` — cyan-bordered textarea with slash-command detection (`/brief`, `/note`, `/search`)
-- Slash commands route to specialized handlers before hitting the main chat stream
-
-**Buildable Checklist:**
-- [ ] `npm install ai @ai-sdk/anthropic react-virtuoso`
-- [ ] Implement `useChat` hook wired to `/api/chat`
-- [ ] Persist session + messages on `onFinish` callback
-- [ ] Add slash-command parser in `TerminalInput` (intercept `/` prefix)
 
 ---
 
@@ -442,7 +391,7 @@ Inject into system prompt:
 
 ### Memory Write-back (Reflection)
 
-At the end of each chat session (triggered by `/save`, session close, or every 10 messages), JARVIS runs a reflection pass:
+At the end of each session (triggered by `/save`, session close, or every 10 messages), JARVIS runs a reflection pass:
 
 ```ts
 // POST /api/memory/reflect
@@ -481,12 +430,11 @@ A bidirectional bridge and persistent memory system between JARVIS and your Obsi
 
 **Architecture:**
 ```
-JARVIS Terminal Input
-  └── Slash Command Parser
-        ├── /note  → VaultWriter   → Obsidian REST API → Creates/appends note
-        ├── /search → VaultSearch  → Obsidian REST API → Returns matching notes
-        ├── /task  → TaskSync      → Obsidian REST API → Reads/writes task items
-        └── /recall → NLPSearch   → Claude + Vault index → Semantic note retrieval
+Slash Command Parser
+  ├── /note  → VaultWriter   → Obsidian REST API → Creates/appends note
+  ├── /search → VaultSearch  → Obsidian REST API → Returns matching notes
+  ├── /task  → TaskSync      → Obsidian REST API → Reads/writes task items
+  └── /recall → NLPSearch   → Claude + Vault index → Semantic note retrieval
 ```
 
 **Obsidian Local REST API Setup:**
@@ -553,7 +501,6 @@ commits_today: 4
 ```
 
 **UI Components:**
-- Slash command autocomplete dropdown in `<TerminalInput />` (appears after `/`)
 - `<VaultSearchResults />` — card list showing matched note title, path, and excerpt
 - `<ObsidianStatusIndicator />` — small indicator in dashboard header showing vault connection state (green pulse = connected)
 
@@ -569,43 +516,18 @@ POST /api/obsidian/task            → Append task to daily note
 POST /api/obsidian/recall          → Two-stage RAG: search → rank → fetch → synthesize
 POST /api/obsidian/memory          → Write structured fact to semantic memory note
 POST /api/memory/reflect           → End-of-session reflection → episodic memory write
-GET  /api/memory/context?q=        → RAG retrieval pipeline (used internally before chat)
+GET  /api/memory/context?q=        → RAG retrieval pipeline (used internally for context injection)
 GET  /api/obsidian/goals           → Read Agent/Goals/Current-Sprint.md
-```
-
-**RAG Context Injection — Integration into `/api/chat`:**
-```ts
-// app/api/chat/route.ts (updated)
-export async function POST(req: Request) {
-  const { messages, sessionId } = await req.json()
-  const lastUserMessage = messages.at(-1)?.content ?? ""
-
-  // Retrieve relevant vault context before reasoning
-  const memoryContext = await fetch("/api/memory/context?q=" + encodeURIComponent(lastUserMessage))
-  const { injectedNotes } = await memoryContext.json()
-
-  const result = streamText({
-    model: anthropic("claude-opus-4-5"),
-    system: buildSystemPrompt(injectedNotes),  // ← vault context injected here
-    messages,
-    onFinish: async ({ text }) => {
-      await persistMessages(sessionId, lastUserMessage, text)
-      await maybeReflect(sessionId, messages.length)  // reflect every 10 messages
-    }
-  })
-  return result.toDataStreamResponse()
-}
 ```
 
 **Buildable Checklist:**
 - [ ] Install Obsidian Local REST API plugin, enable HTTPS, store key in env vars
 - [ ] Build `/api/obsidian/[...path]` proxy route in Next.js
-- [ ] Add slash command parser to `<TerminalInput />` with autocomplete dropdown
 - [ ] Implement `/note`, `/search`, `/task` handlers
 - [ ] Implement `/recall` two-stage RAG handler (keyword search → Haiku ranking → full fetch → synthesis)
 - [ ] Implement `/memory` handler for semantic memory writes with user confirmation step
 - [ ] Build `/api/memory/reflect` session reflection endpoint
-- [ ] Build `/api/memory/context` RAG retrieval pipeline and wire into `/api/chat` pre-call
+- [ ] Build `/api/memory/context` RAG retrieval pipeline
 - [ ] Create vault folder scaffold: `Agent/Memory/Episodic/`, `Agent/Memory/Semantic/`, `Agent/Memory/Procedural/`, `Agent/Goals/`
 - [ ] Seed `Agent/Memory/Semantic/User-Preferences.md` and `Agent/Memory/Procedural/Agent-Instructions.md` with initial content
 - [ ] Wire daily note auto-generation into Module F briefing route
@@ -642,14 +564,10 @@ Grid lines:   bg-gradient-to-b from-transparent via-white/[0.02] to-transparent
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Header / Briefing Bar              │
-├──────────────┬──────────────────────┬────────────────┤
-│  Session     │   Message Feed       │  DevVitals     │
-│  Sidebar     │   (Command Center)   │  (GitHub)      │
-│  (Module B)  │                      │  (Module C)    │
-│              ├──────────────────────┤                │
-│              │   Terminal Input     │  ChronoMatrix  │
-│              │   (slash commands)   │  (Module E)    │
-├──────────────┴──────────────────────┴────────────────┤
+├──────────────────────────┬────────────────────────────┤
+│   DevVitals (GitHub)     │   ChronoMatrix              │
+│   (Module C)             │   (Module E)                │
+├──────────────────────────┴────────────────────────────┤
 │              Chronos Grid (Calendar) Module D         │
 └─────────────────────────────────────────────────────┘
 ```
@@ -741,29 +659,25 @@ model ObsidianSync {
 > **Prompt to Claude:**
 > "Generate complete Auth.js (NextAuth v5) configuration using a Google OAuth provider for Next.js App Router. Produce three files: `auth.config.ts` (provider definition), `auth.ts` (exported handlers and `auth` helper), and `middleware.ts`. The middleware must match all paths except `/api/auth/**`, `/login`, and `/_next/**`. It must decode the JWT session token and compare `token.email` against `process.env.AUTHORIZED_EMAIL`. On mismatch or missing token, redirect to `/login`. Also produce `app/login/page.tsx`: a full-screen dark splash page with a centered 'SYSTEM ACCESS' heading and a single Google sign-in button styled with a cyan glow border."
 
-### Phase 3: The Command Interface Shell (UI Grid)
-> **Prompt to Claude:**
-> "Build a complete Next.js App Router page at `app/dashboard/page.tsx` implementing the JARVIS command interface. Use the Vercel AI SDK `useChat` hook connected to `/api/chat`. The layout must use CSS Grid with three columns: a 240px session sidebar on the left, a flexible message feed in the center, and a 280px status panel on the right. The sidebar lists `Session` records fetched from `/api/sessions` with hover glow states and a 'New Session' button. The message feed renders `Message` records with different alignment and color for USER vs JARVIS. Include a fixed `<TerminalInput />` at the bottom of the center column that detects messages starting with `/` and logs them as slash commands before submission. Style everything using only Tailwind CSS with the design tokens: bg `#030712`, panels `#0b1329`, borders `border-white/5`, text `#94a3b8`."
-
-### Phase 4: Integration Engine — Google Calendar & GitHub Tracker
+### Phase 3: Integration Engine — Google Calendar & GitHub Tracker
 > **Prompt to Claude:**
 > "Write two Next.js App Router API routes. Route 1: `app/api/calendar/route.ts`. Use the `googleapis` npm package with a pre-configured `OAuth2` client using `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALENDAR_REFRESH_TOKEN` environment variables. On GET, fetch today's events from `timeMin` (midnight) to `timeMax` (11:59pm) and return a typed array of `{ id, summary, start, end, location }`. Route 2: `app/api/github/route.ts`. Make an authenticated POST to `https://api.github.com/graphql` using `GITHUB_PAT`. Run the contributionsCollection + pullRequests query for the authenticated user. Cache the response in Supabase with a 5-minute TTL check. Return structured JSON with `commitCount`, `openPRs[]`, and `contributionGrid[][]`."
 
-### Phase 5: The Chrono-Sprint Matrix Interface
+### Phase 4: The Chrono-Sprint Matrix Interface
 > **Prompt to Claude:**
 > "Create a client-side React component `components/ChronoMatrix.tsx` for the JARVIS dashboard. Implement a Pomodoro timer using `useReducer` with states: `IDLE`, `FOCUS` (25 min), `SHORT_BREAK` (5 min), `LONG_BREAK` (15 min). After 4 focus sprints, automatically transition to LONG_BREAK. Render a circular SVG progress ring using `stroke-dasharray` and `stroke-dashoffset` with a glowing cyan stroke (`filter: drop-shadow(0 0 6px #06b6d4)`). Include a text input to bind an active task name to the session. On sprint completion, fire a Web Audio API chime (880Hz → 440Hz oscillator over 1 second) and POST `{ taskName, duration, mode }` to `POST /api/sprints`. Also create the `app/api/sprints/route.ts` handler that writes to the `SprintSession` Prisma model."
 
-### Phase 6: The Tactical Briefing Engine
+### Phase 5: The Tactical Briefing Engine
 > **Prompt to Claude:**
 > "Build a streaming Next.js API route at `app/api/brief/route.ts`. It must use `Promise.allSettled` to concurrently fetch: (1) OpenWeatherMap current weather using `OPENWEATHER_API_KEY`, `OPENWEATHER_LAT`, `OPENWEATHER_LON`; (2) today's Google Calendar events from the internal `/api/calendar` route; (3) GitHub vitals from the internal `/api/github` route. Compile all results into a structured context object (gracefully handle any failed promises with fallback strings). Build a JARVIS system prompt that includes weather, schedule, and GitHub status. Use the Vercel AI SDK `streamText` function with `@ai-sdk/anthropic` and stream the response. The AI persona must be J.A.R.V.I.S. — precise, analytical, slightly witty, no filler. Save the briefing text to the `BriefingCache` Prisma model keyed by today's date."
 
-### Phase 7: The Obsidian Intelligence Layer — Commands & Proxy
+### Phase 6: The Obsidian Intelligence Layer — Commands & Proxy
 > **Prompt to Claude:**
-> "Build the Obsidian integration layer for my JARVIS dashboard. First, create a proxy API route at `app/api/obsidian/[...path]/route.ts` that forwards all GET/POST/PUT requests to `https://localhost:${process.env.OBSIDIAN_VAULT_PORT}` with the `Authorization: Bearer ${process.env.OBSIDIAN_API_KEY}` header, returning the proxied response. Second, build these slash-command handler routes: (1) `POST /api/obsidian/note` — accepts `{ title?, content }`, writes or appends to `Daily/YYYY-MM-DD.md`; (2) `GET /api/obsidian/search?q=` — returns top 5 results as `{ path, excerpt }[]`; (3) `POST /api/obsidian/task` — appends a `- [ ] {task}` line to today's daily note; (4) `POST /api/obsidian/recall` — two-stage RAG: keyword search → Haiku relevance ranking → fetch full content of top 3 notes → stream Claude synthesis; (5) `GET /api/obsidian/goals` — reads and returns `Agent/Goals/Current-Sprint.md` content. Log all actions to the `ObsidianSync` Prisma model. Update `<TerminalInput />` to show an autocomplete dropdown with all slash commands when the user types `/`."
+> "Build the Obsidian integration layer for my JARVIS dashboard. First, create a proxy API route at `app/api/obsidian/[...path]/route.ts` that forwards all GET/POST/PUT requests to `https://localhost:${process.env.OBSIDIAN_VAULT_PORT}` with the `Authorization: Bearer ${process.env.OBSIDIAN_API_KEY}` header, returning the proxied response. Second, build these slash-command handler routes: (1) `POST /api/obsidian/note` — accepts `{ title?, content }`, writes or appends to `Daily/YYYY-MM-DD.md`; (2) `GET /api/obsidian/search?q=` — returns top 5 results as `{ path, excerpt }[]`; (3) `POST /api/obsidian/task` — appends a `- [ ] {task}` line to today's daily note; (4) `POST /api/obsidian/recall` — two-stage RAG: keyword search → Haiku relevance ranking → fetch full content of top 3 notes → stream Claude synthesis; (5) `GET /api/obsidian/goals` — reads and returns `Agent/Goals/Current-Sprint.md` content. Log all actions to the `ObsidianSync` Prisma model."
 
-### Phase 8: Obsidian Agent Brain — Memory & RAG Pipeline
+### Phase 7: Obsidian Agent Brain — Memory & RAG Pipeline
 > **Prompt to Claude:**
-> "Implement the Obsidian-as-agent-brain memory system for my JARVIS dashboard. Build three components: (1) `app/api/memory/context/route.ts` — a GET route that accepts `?q=` (the user's latest message). It performs a full-text Obsidian search for key terms, sends candidate excerpts to Claude Haiku to rank relevance, fetches the top 3 note contents, and returns `{ injectedNotes: string }` capped at 2,000 tokens. (2) `app/api/memory/reflect/route.ts` — a POST route that accepts `{ messages[], sessionId }`. It sends the full conversation to Claude with a structured reflection prompt that extracts: key decisions, new user preferences, action items, and suggested wikilinks. It writes the structured output as a markdown note to `Agent/Memory/Episodic/YYYY-MM-DD-session-{id}.md` via the Obsidian proxy, and if new preferences are found, PATCHes `Agent/Memory/Semantic/User-Preferences.md`. (3) `POST /api/obsidian/memory` — accepts `{ instruction }` (e.g. 'Remember I prefer Zustand'), sends it to Claude to extract a structured fact, formats it as a markdown bullet, and appends it to the appropriate semantic memory note with a user confirmation step. Finally, update `app/api/chat/route.ts` to call `/api/memory/context` before each `streamText` call, inject the returned notes into the system prompt under a `--- LONG-TERM MEMORY ---` header, and call `/api/memory/reflect` automatically every 10 messages in a session."
+> "Implement the Obsidian-as-agent-brain memory system for my JARVIS dashboard. Build three components: (1) `app/api/memory/context/route.ts` — a GET route that accepts `?q=` (the latest query). It performs a full-text Obsidian search for key terms, sends candidate excerpts to Claude Haiku to rank relevance, fetches the top 3 note contents, and returns `{ injectedNotes: string }` capped at 2,000 tokens. (2) `app/api/memory/reflect/route.ts` — a POST route that accepts `{ messages[], sessionId }`. It sends the full conversation to Claude with a structured reflection prompt that extracts: key decisions, new user preferences, action items, and suggested wikilinks. It writes the structured output as a markdown note to `Agent/Memory/Episodic/YYYY-MM-DD-session-{id}.md` via the Obsidian proxy, and if new preferences are found, PATCHes `Agent/Memory/Semantic/User-Preferences.md`. (3) `POST /api/obsidian/memory` — accepts `{ instruction }` (e.g. 'Remember I prefer Zustand'), sends it to Claude to extract a structured fact, formats it as a markdown bullet, and appends it to the appropriate semantic memory note with a user confirmation step."
 
 ---
 
@@ -772,14 +686,13 @@ model ObsidianSync {
 - [ ] **Step 1:** Run structural initialization, configure Tailwind tokens, push base project to Vercel with environment variables set.
 - [ ] **Step 2:** Configure Auth.js with Google OAuth, deploy gatekeeper middleware, verify `/login` redirect blocks unauthorized access.
 - [ ] **Step 3:** Run Prisma migrations against Supabase. Confirm all models (`User`, `Session`, `Message`, `SprintSession`, `BriefingCache`, `ObsidianSync`) are created.
-- [ ] **Step 4:** Build Command Center UI — session sidebar, message feed, streaming chat, terminal input with slash command detection.
-- [ ] **Step 5:** Integrate Calendar and GitHub API routes. Confirm secure token passing from NextAuth to server-side handlers. Render `<ChronosGrid />` and `<DevVitals />`.
-- [ ] **Step 6:** Build and test `<ChronoMatrix />` — timer cycles, audio chime, sprint logging to DB.
-- [ ] **Step 7:** Wire up Briefing Engine. Confirm `Promise.allSettled` aggregation, JARVIS persona stream, and `BriefingCache` DB write.
-- [ ] **Step 8:** Install Obsidian Local REST API plugin. Build proxy route and all slash-command handlers. Test `/note`, `/search`, `/task`, `/recall`, `/goals` end-to-end.
-- [ ] **Step 9:** Scaffold vault agent brain folder structure. Seed `User-Preferences.md` and `Agent-Instructions.md` with initial content.
-- [ ] **Step 10:** Build RAG memory pipeline — `/api/memory/context` retrieval route. Wire into `/api/chat` pre-call. Verify injected context appears in Claude system prompt.
-- [ ] **Step 11:** Build `/api/memory/reflect` session reflection endpoint. Test that episodic memory note is auto-written after 10 messages and on `/save`.
-- [ ] **Step 12:** Build `/api/obsidian/memory` preference-write handler with confirmation step. Test `/memory Remember that I prefer X` end-to-end.
-- [ ] **Step 13:** Wire daily note auto-generation into briefing engine. Confirm Obsidian note created/updated on each `/brief` run with frontmatter + JARVIS brief content.
-- [ ] **Step 14:** Final polish — boot sequence animations, `<ObsidianStatusIndicator />`, `<MemoryPanel />` sidebar, performance audit, mobile layout.
+- [ ] **Step 4:** Integrate Calendar and GitHub API routes. Confirm secure token passing from NextAuth to server-side handlers. Render `<ChronosGrid />` and `<DevVitals />`.
+- [ ] **Step 5:** Build and test `<ChronoMatrix />` — timer cycles, audio chime, sprint logging to DB.
+- [ ] **Step 6:** Wire up Briefing Engine. Confirm `Promise.allSettled` aggregation, JARVIS persona stream, and `BriefingCache` DB write.
+- [ ] **Step 7:** Install Obsidian Local REST API plugin. Build proxy route and all slash-command handlers. Test `/note`, `/search`, `/task`, `/recall`, `/goals` end-to-end.
+- [ ] **Step 8:** Scaffold vault agent brain folder structure. Seed `User-Preferences.md` and `Agent-Instructions.md` with initial content.
+- [ ] **Step 9:** Build RAG memory pipeline — `/api/memory/context` retrieval route. Verify injected context appears in Claude system prompt.
+- [ ] **Step 10:** Build `/api/memory/reflect` session reflection endpoint. Test that episodic memory note is auto-written after 10 messages and on `/save`.
+- [ ] **Step 11:** Build `/api/obsidian/memory` preference-write handler with confirmation step. Test `/memory Remember that I prefer X` end-to-end.
+- [ ] **Step 12:** Wire daily note auto-generation into briefing engine. Confirm Obsidian note created/updated on each `/brief` run with frontmatter + JARVIS brief content.
+- [ ] **Step 13:** Final polish — boot sequence animations, `<ObsidianStatusIndicator />`, `<MemoryPanel />` sidebar, performance audit, mobile layout.
