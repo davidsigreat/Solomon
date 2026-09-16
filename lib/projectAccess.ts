@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
+import type { AuthedUser } from "@/lib/getUser";
 
 export type ProjectRole = "OWNER" | "EDITOR" | "VIEWER";
+
+export type MutateAccess =
+  | { ok: true; role: ProjectRole }
+  | { ok: false; status: 403 | 404; error: string };
 
 /**
  * Returns the effective role of `auth` on `projectId`, or null if no access.
@@ -53,9 +58,24 @@ export function projectAccessWhere(auth: { userId: string; isAdmin: boolean }) {
 /** Task's project + caller's role on it. `task` is null when the task doesn't exist. */
 export async function resolveTaskAccess(
   taskId: string,
-  auth: { userId: string; isAdmin: boolean }
+  auth: { userId: string; isAdmin: boolean; canEdit?: boolean }
 ): Promise<{ task: { projectId: string } | null; role: ProjectRole | null }> {
   const task = await db.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
   if (!task) return { task: null, role: null };
   return { task, role: await getProjectRole(task.projectId, auth) };
+}
+
+/**
+ * App-level VIEWER is always read-only. Otherwise the project role must be
+ * EDITOR or OWNER (creator / admin count as OWNER).
+ */
+export async function requireProjectMutate(
+  projectId: string,
+  auth: AuthedUser,
+): Promise<MutateAccess> {
+  if (!auth.canEdit) return { ok: false, status: 403, error: "Forbidden" };
+  const role = await getProjectRole(projectId, auth);
+  if (!role) return { ok: false, status: 404, error: "Not found" };
+  if (role === "VIEWER") return { ok: false, status: 403, error: "Forbidden" };
+  return { ok: true, role };
 }

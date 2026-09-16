@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint app/api/v1 app/api/mcp lib/mcp lib/apiAuth.ts lib/solomonPublic.ts lib/projectAccess.ts lib/getUser.ts --max-warnings 0",
     "db:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
     "db:status": "prisma migrate status",
@@ -20,17 +20,22 @@
   "author": "David",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.78",
+    "@anthropic-ai/sdk": "^0.96.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@neondatabase/auth": "^0.3.0-beta",
     "@prisma/client": "^6.19.3",
     "@tailwindcss/postcss": "^4.3.0",
     "autoprefixer": "^10.5.0",
+    "mcp-handler": "^2.1.1",
     "next": "^16.2.6",
     "postcss": "^8.5.14",
     "prisma": "^6.19.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
